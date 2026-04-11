@@ -2,6 +2,18 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+<!-- Location -->
+<key>NSLocationWhenInUseUsageDescription</key>
+<string>This app needs location access</string>
+
+<!-- Notifications -->
+<key>NSUserNotificationUsageDescription</key>
+<string>This app needs notification permission</string>
+
+<!-- Files -->
+<key>NSPhotoLibraryUsageDescription</key>
+<string>This app needs file access</string>
+
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
