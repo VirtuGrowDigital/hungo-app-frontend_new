@@ -37,15 +37,45 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen>
 
   late List<AnimationController> _controllers;
 
-  final List<String> statusFlow = [
-    "Pending",
-    "Accepted",
-    "Packed",
-    "Out for Delivery",
-    "Delivered",
-    "Returned",
-    "Refunded",
-  ];
+  // ================= DYNAMIC STATUS FLOW =================
+  // Normal delivery ke baad sirf 5 steps.
+  // Return ya Refund hone par extra steps automatically add ho jaate hain.
+
+  List<String> get _effectiveStatusFlow {
+    final item = widget.selectedItem;
+
+    if (item.refunded) {
+      return [
+        "Pending",
+        "Accepted",
+        "Packed",
+        "Out for Delivery",
+        "Delivered",
+        "Returned",
+        "Refunded",
+      ];
+    }
+
+    if (item.returned) {
+      return [
+        "Pending",
+        "Accepted",
+        "Packed",
+        "Out for Delivery",
+        "Delivered",
+        "Returned",
+      ];
+    }
+
+    // Default: normal delivery flow
+    return [
+      "Pending",
+      "Accepted",
+      "Packed",
+      "Out for Delivery",
+      "Delivered",
+    ];
+  }
 
   late int currentIndex;
 
@@ -75,6 +105,8 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen>
     super.initState();
 
     final item = widget.selectedItem;
+
+    // Effective status decide karo
     String effectiveStatus = widget.order.orderStatus;
 
     if (item.returned && !item.refunded) {
@@ -85,10 +117,12 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen>
       effectiveStatus = "Refunded";
     }
 
-    currentIndex = statusFlow.indexOf(effectiveStatus);
+    // Dynamic flow ke against index dhundho
+    currentIndex = _effectiveStatusFlow.indexOf(effectiveStatus);
 
+    // Controllers dynamic flow ke length ke hisaab se banao
     _controllers = List.generate(
-      statusFlow.length,
+      _effectiveStatusFlow.length,
           (_) => AnimationController(
         vsync: this,
         duration: const Duration(milliseconds: 400),
@@ -197,8 +231,8 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen>
         subTotal += item.total;
       }
 
-      double deliveryFee = 50;   // 👈 You can make dynamic
-      double platformFee = 12;   // 👈 You can make dynamic
+      double deliveryFee = 50;
+      double platformFee = 12;
 
       double grandTotal =
           subTotal + deliveryFee + platformFee;
@@ -645,142 +679,118 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen>
     );
   }
 
+  // ================= TIMELINE CARD =================
+  // Dynamic flow use karta hai:
+  // - Normal:   Pending → Accepted → Packed → Out for Delivery → Delivered
+  // - Returned: ...Delivered → Returned
+  // - Refunded: ...Returned → Refunded
+
   Widget _timelineCard() {
+    final flow = _effectiveStatusFlow;
+
     return Container(
       color: Colors.white,
-      padding:
-      const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
       child: Column(
-        crossAxisAlignment:
-        CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text("Order Status",
               style: TextStyle(
                   fontSize: 16,
-                  fontWeight:
-                  FontWeight.w600)),
+                  fontWeight: FontWeight.w600)),
           const SizedBox(height: 16),
           Column(
-            children: List.generate(
-                statusFlow.length,
-                    (index) {
-                  final isActive =
-                      index <= currentIndex;
-                  final isLast =
-                      index ==
-                          statusFlow.length -
-                              1;
+            children: List.generate(flow.length, (index) {
+              final isActive = index <= currentIndex;
+              final isLast = index == flow.length - 1;
 
-                  return Row(
-                    crossAxisAlignment:
-                    CrossAxisAlignment
-                        .start,
+              // Return / Refund steps ko orange/purple color denge
+              final isReturnStep =
+                  flow[index] == "Returned" || flow[index] == "Refunded";
+
+              final activeColor = isReturnStep
+                  ? (flow[index] == "Refunded"
+                      ? Colors.purple
+                      : Colors.orange)
+                  : Colors.green;
+
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Column(
                     children: [
-                      Column(
-                        children: [
-                          AnimatedBuilder(
-                            animation:
-                            _controllers[index],
-                            builder:
-                                (_, __) {
-                              return Container(
-                                height: 14,
-                                width: 14,
-                                decoration:
-                                BoxDecoration(
-                                  color: _controllers[index]
-                                      .value >
-                                      0
-                                      ? Colors.green
-                                      : Colors.grey
-                                      .shade400,
-                                  shape:
-                                  BoxShape.circle,
-                                ),
-                              );
-                            },
-                          ),
-                          if (!isLast)
-                            SizedBox(
-                              height: 50,
-                              width: 2,
-                              child: Stack(
-                                children: [
-                                  Container(
-                                      height:
-                                      50,
-                                      width:
-                                      2,
-                                      color: Colors
-                                          .grey
-                                          .shade300),
-                                  Container(
-                                      height: 50 *
-                                          _controllers[
-                                          index]
-                                              .value,
-                                      width: 2,
-                                      color: Colors
-                                          .green),
-                                ],
-                              ),
+                      AnimatedBuilder(
+                        animation: _controllers[index],
+                        builder: (_, __) {
+                          return Container(
+                            height: 14,
+                            width: 14,
+                            decoration: BoxDecoration(
+                              color: _controllers[index].value > 0
+                                  ? activeColor
+                                  : Colors.grey.shade400,
+                              shape: BoxShape.circle,
                             ),
-                        ],
+                          );
+                        },
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Padding(
-                          padding:
-                          const EdgeInsets.only(
-                              bottom:
-                              20),
-                          child: Column(
-                            crossAxisAlignment:
-                            CrossAxisAlignment
-                                .start,
+                      if (!isLast)
+                        SizedBox(
+                          height: 50,
+                          width: 2,
+                          child: Stack(
                             children: [
-                              Text(
-                                statusFlow[
-                                index],
-                                style:
-                                TextStyle(
-                                  fontWeight:
-                                  FontWeight
-                                      .w600,
-                                  color: isActive
-                                      ? Colors
-                                      .black
-                                      : Colors
-                                      .grey,
-                                ),
-                              ),
-                              if (isActive)
-                                const SizedBox(
+                              Container(
+                                  height: 50,
+                                  width: 2,
+                                  color: Colors.grey.shade300),
+                              AnimatedBuilder(
+                                animation: _controllers[index],
+                                builder: (_, __) => Container(
                                     height:
-                                    4),
-                              if (isActive)
-                                Text(
-                                  DateFormat(
-                                      'dd MMM yyyy, hh:mm a')
-                                      .format(
-                                      DateTime.parse(
-                                          widget.order.createdAt)
-                                          .toLocal()),
-                                  style:
-                                  const TextStyle(
-                                    fontSize:
-                                    11,
-                                    color:
-                                    Colors.grey,
-                                  ),
-                                ),
+                                        50 * _controllers[index].value,
+                                    width: 2,
+                                    color: activeColor),
+                              ),
                             ],
                           ),
                         ),
-                      ),
                     ],
-                  );
-                }),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            flow[index],
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color:
+                                  isActive ? Colors.black : Colors.grey,
+                            ),
+                          ),
+                          if (isActive) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              DateFormat('dd MMM yyyy, hh:mm a').format(
+                                  DateTime.parse(widget.order.createdAt)
+                                      .toLocal()),
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            }),
           ),
         ],
       ),

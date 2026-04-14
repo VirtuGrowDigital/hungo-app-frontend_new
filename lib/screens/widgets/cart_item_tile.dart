@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hungzo_app/model/cart_item.dart';
 import '../../controllers/cart_controller.dart';
 
 class CartItemTile extends StatelessWidget {
@@ -14,7 +15,7 @@ class CartItemTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Dismissible(
-      key: ValueKey(item.productId),
+key: ValueKey('${item.productId}_${item.varietyId ?? ""}'),
       direction: DismissDirection.horizontal,
       onDismissed: (_) => controller.removeItem(item),
       background: _bg(Alignment.centerLeft),
