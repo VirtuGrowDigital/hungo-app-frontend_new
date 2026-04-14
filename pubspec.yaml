@@ -173,7 +173,6 @@ flutter:
 flutter_launcher_icons:
   android: true
   ios: true
-  web: true
   image_path: "assets/logo/hunzo_main_logo.png"
   remove_alpha_ios: true
   adaptive_icon_background: "#FFFFFF"
