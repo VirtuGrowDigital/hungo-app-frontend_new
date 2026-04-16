@@ -1,7 +1,7 @@
 class ApiConstants {
 
-  static const baseURL = "http://192.168.29.125:4000/";  // for testing
-  // static const baseURL = "https://api.hungzo.in/";  // for testing
+  // static const baseURL = "http://192.168.29.125:4000/";  // for testing
+  static const baseURL = "https://api.hungzo.in/";  // for testing
   // static const baseURL = "http://192.168.1.71:4000/";  // for testing
 
   // static const baseURL = "https://9fcwsitd51.execute-api.ap-south-1.amazonaws.com/v1/api/"; // production
