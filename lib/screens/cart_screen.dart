@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hungzo_app/screens/select%20_location%20_screen.dart';
+import 'package:hungzo_app/screens/payment_method_screen.dart';
 import 'package:shimmer/shimmer.dart';
 
 import '../controllers/cart_controller.dart';
@@ -45,25 +46,32 @@ class CartScreen extends StatelessWidget {
             children: [
               Expanded(
                 child: RefreshIndicator(
-                  onRefresh: controller.fetchCart,
+                  onRefresh: () => controller.fetchCart(),
                   child: ListView(
                     physics:
                     const AlwaysScrollableScrollPhysics(),
-                    children: controller.cartItems
-                        .map(
-                          (item) => CartItemTile(
-                        item: item,
-                        controller: controller,
-                      ),
-                    )
-                        .toList(),
+                    children: [
+                      _fulfillmentSelector(),
+                      const SizedBox(height: 14),
+                      ...controller.cartItems
+                          .map(
+                            (item) => CartItemTile(
+                          item: item,
+                          controller: controller,
+                        ),
+                      )
+                          .toList(),
+                    ],
                   ),
                 ),
               ),
 
               const Divider(height: 30),
               Obx(() => _priceRow('Subtotal', controller.subtotal.value)),
-              Obx(() => _priceRow('Delivery Fee', controller.deliveryFee.value)),
+              Obx(() => _priceRow(
+                controller.isSelfPickup ? 'Pickup Fee' : 'Delivery Fee',
+                controller.deliveryFee.value,
+              )),
               Obx(() => _priceRow('Platform Fee', controller.platformFee.value)),
               const Divider(),
               const Divider(),
@@ -87,7 +95,21 @@ class CartScreen extends StatelessWidget {
                     ),
                   ),
                   onPressed: () {
-                    Get.to(() => const SelectLocationScreen());
+                    if (controller.isSelfPickup) {
+                      Get.to(
+                            () => const PaymentMethodScreen(
+                          address: 'SELF PICKUP',
+                          fulfillmentType: CartController.selfPickupType,
+                        ),
+                      );
+                      return;
+                    }
+
+                    Get.to(
+                          () => const SelectLocationScreen(
+                        fulfillmentType: CartController.deliveryType,
+                      ),
+                    );
                   },
                   child: const Text(
                     'Proceed to Payment',
@@ -216,6 +238,93 @@ class CartScreen extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _fulfillmentSelector() {
+    return Obx(
+          () => Container(
+        padding: const EdgeInsets.all(6),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: _fulfillmentOption(
+                title: 'Delivery',
+                subtitle: 'Send to your address',
+                icon: Icons.local_shipping_outlined,
+                selected: controller.fulfillmentType.value ==
+                    CartController.deliveryType,
+                onTap: () => controller.setFulfillmentType(
+                  CartController.deliveryType,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _fulfillmentOption(
+                title: 'Self Pickup',
+                subtitle: 'Collect from store',
+                icon: Icons.storefront_outlined,
+                selected: controller.fulfillmentType.value ==
+                    CartController.selfPickupType,
+                onTap: () => controller.setFulfillmentType(
+                  CartController.selfPickupType,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _fulfillmentOption({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: selected ? ColorConstants.success : const Color(0xffF2F4F7),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              icon,
+              color: selected ? Colors.white : Colors.black87,
+            ),
+            const SizedBox(height: 10),
+            Text(
+              title,
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                color: selected ? Colors.white : Colors.black,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              style: TextStyle(
+                fontSize: 12,
+                color: selected ? Colors.white70 : Colors.black54,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

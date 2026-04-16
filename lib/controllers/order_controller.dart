@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
-import 'package:hungzo_app/data/models/HomeModel/home_model.dart';
 import 'package:hungzo_app/services/Api/api_constants.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 
@@ -37,8 +36,12 @@ class OrderController extends GetxController {
 
   // ================= PLACE ORDER =================
   Future<void> placeOrder({
+    String? addressId,
     required String shippingAddress,
     required String paymentMethod,
+    required String fulfillmentType,
+    double? lat,
+    double? lng,
   }) async {
     isLoading.value = true;
     paymentCompleted.value = false;
@@ -53,42 +56,67 @@ class OrderController extends GetxController {
         isLoading.value = false;
         return;
       }
-      print("Address $shippingAddress,paymentMethod $paymentMethod, Bearer $token");
+
+      if (fulfillmentType == "DELIVERY") {
+        if (shippingAddress.isEmpty || lat == null || lng == null) {
+          isLoading.value = false;
+          Get.snackbar(
+            "Error",
+            "Please select a valid delivery address",
+            snackPosition: SnackPosition.BOTTOM,
+          );
+          return;
+        }
+      }
+
+      print(
+        "Address $shippingAddress,paymentMethod $paymentMethod, "
+        "fulfillmentType $fulfillmentType, Bearer $token",
+      );
+
+      final Map<String, dynamic> payload = {
+        "paymentMethod": paymentMethod,
+        "fulfillmentType": fulfillmentType,
+      };
+
+      if (fulfillmentType == "DELIVERY") {
+        if (addressId != null && addressId.isNotEmpty) {
+          payload["addressId"] = addressId;
+        }
+        payload["shippingAddress"] = shippingAddress;
+        payload["location"] = {
+          "lat": lat,
+          "lng": lng,
+        };
+      }
+
       final response = await http.post(
         Uri.parse(url),
         headers: {
           "Authorization": "Bearer $token",
           "Content-Type": "application/json",
         },
-        body: jsonEncode({
-          "shippingAddress": shippingAddress,
-          "paymentMethod": paymentMethod,
-          "location" : {
-            "lat" : 0.00,
-            "lng" : 0.00
-          }
-        }),
+        body: jsonEncode(payload),
       );
 
       final data = jsonDecode(response.body) as Map<String, dynamic>;
-print("Payment Data $data");
+      print("Payment Data $data");
       if (paymentMethod == "ONLINE" && data["success"] == true) {
         if (data['type'] == "WALLET") {
           isLoading.value = false;
           paymentCompleted.value = true;
         }
-        else{
-        _razorpayOrderId = data["razorpayOrderId"].toString();
+        else {
+          _razorpayOrderId = data["razorpayOrderId"].toString();
 
-        debugPrint("📦 Razorpay Order ID: $_razorpayOrderId");
+          debugPrint("📦 Razorpay Order ID: $_razorpayOrderId");
 
-        // 🔥 Direct open without postFrameCallback
-        _openRazorpay(
-          key: data["key"].toString(),
-          amount: int.parse(data["amount"].toString()),
-          razorpayOrderId: _razorpayOrderId!,
-        );
-      }
+          _openRazorpay(
+            key: data["key"].toString(),
+            amount: int.parse(data["amount"].toString()),
+            razorpayOrderId: _razorpayOrderId!,
+          );
+        }
       } else if (paymentMethod == "COD" && data["success"] == true) {
         isLoading.value = false;
         paymentCompleted.value = true;

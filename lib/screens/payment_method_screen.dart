@@ -4,8 +4,20 @@ import '../controllers/order_controller.dart';
 import 'order_success_screen.dart';
 
 class PaymentMethodScreen extends StatefulWidget {
+  final String? addressId;
   final String address;
-  const PaymentMethodScreen({super.key, required this.address});
+  final String fulfillmentType;
+  final double? lat;
+  final double? lng;
+
+  const PaymentMethodScreen({
+    super.key,
+    this.addressId,
+    required this.address,
+    required this.fulfillmentType,
+    this.lat,
+    this.lng,
+  });
 
   @override
   State<PaymentMethodScreen> createState() => _PaymentMethodScreenState();
@@ -65,8 +77,10 @@ class _PaymentMethodScreenState extends State<PaymentMethodScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          "Shipping Address",
+                        Text(
+                          widget.fulfillmentType == "SELF_PICKUP"
+                              ? "Pickup Type"
+                              : "Shipping Address",
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -74,7 +88,9 @@ class _PaymentMethodScreenState extends State<PaymentMethodScreen> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          widget.address,
+                          widget.fulfillmentType == "SELF_PICKUP"
+                              ? "You will collect this order yourself."
+                              : widget.address,
                           style: const TextStyle(fontSize: 14),
                         ),
                       ],
@@ -141,10 +157,14 @@ class _PaymentMethodScreenState extends State<PaymentMethodScreen> {
                         ? null
                         : () {
                       orderController.placeOrder(
+                        addressId: widget.addressId,
                         shippingAddress: widget.address,
                         paymentMethod: selectedMethod.value == 1
                             ? "ONLINE"
                             : "COD",
+                        fulfillmentType: widget.fulfillmentType,
+                        lat: widget.lat,
+                        lng: widget.lng,
                       );
                     },
                     style: ElevatedButton.styleFrom(

@@ -6,11 +6,14 @@ import 'package:http/http.dart' as http;
 import 'package:hungzo_app/services/Api/api_constants.dart';
 
 class CartController extends GetxController {
+  static const String deliveryType = "DELIVERY";
+  static const String selfPickupType = "SELF_PICKUP";
 
   /// ================= STATE =================
 
   final RxList<CartItem> cartItems = <CartItem>[].obs;
   final RxBool isLoading = false.obs;
+  final RxString fulfillmentType = deliveryType.obs;
 
   final RxDouble subtotal = 0.0.obs;
   final RxDouble deliveryFee = 0.0.obs;
@@ -27,28 +30,30 @@ class CartController extends GetxController {
     fetchCart();
   }
 
+  bool get isSelfPickup => fulfillmentType.value == selfPickupType;
+
   // ================= CALCULATE TOTAL =================
 
   void calculateTotals() {
-
     double sub = cartItems.fold(
       0,
-          (sum, item) => sum + (item.price * item.quantity),
+      (sum, item) => sum + (item.price * item.quantity),
     );
 
     subtotal.value = sub;
 
-    totalAmount.value =
-        subtotal.value + deliveryFee.value + platformFee.value;
+    totalAmount.value = subtotal.value + deliveryFee.value + platformFee.value;
   }
 
   // ================= FETCH CART =================
 
-  Future<void> fetchCart() async {
-
+  Future<void> fetchCart({String? type}) async {
     try {
-
       isLoading(true);
+
+      if (type != null) {
+        fulfillmentType.value = type;
+      }
 
       final token = await secureStorage.read(key: 'accessToken');
 
@@ -57,8 +62,14 @@ class CartController extends GetxController {
         return;
       }
 
+      final uri = Uri.parse(cartUrl).replace(
+        queryParameters: {
+          "fulfillmentType": fulfillmentType.value,
+        },
+      );
+
       final response = await http.get(
-        Uri.parse(cartUrl),
+        uri,
         headers: {
           "Authorization": "Bearer $token",
           "Content-Type": "application/json"
@@ -68,7 +79,6 @@ class CartController extends GetxController {
       print("statusCode = ${response.statusCode}");
 
       if (response.statusCode == 200) {
-
         final data = jsonDecode(response.body);
 
         subtotal.value = (data["subTotal"] ?? 0).toDouble();
@@ -78,21 +88,20 @@ class CartController extends GetxController {
 
         final List items = data["items"] ?? [];
 
-        cartItems.value =
-            items.map((e) => CartItem.fromJson(e)).toList();
+        cartItems.value = items.map((e) => CartItem.fromJson(e)).toList();
 
         calculateTotals();
       }
-
     } catch (e) {
-
       print("fetchCart error: $e");
-
     } finally {
-
       isLoading(false);
-
     }
+  }
+
+  Future<void> setFulfillmentType(String type) async {
+    if (fulfillmentType.value == type) return;
+    await fetchCart(type: type);
   }
 
   // ================= REMOVE ITEM =================
@@ -135,28 +144,20 @@ class CartController extends GetxController {
   // ================= INCREASE QUANTITY =================
 
   void increaseQty(CartItem item) {
-
     item.quantity++;
-
     cartItems.refresh();
-
     calculateTotals();
   }
 
   // ================= DECREASE QUANTITY =================
 
   void decreaseQty(CartItem item) {
-
     item.quantity--;
 
     if (item.quantity < 1) {
-
       cartItems.remove(item);
-
     }
-
     cartItems.refresh();
-
     calculateTotals();
   }
 }
@@ -184,7 +185,6 @@ class CartItem {
   });
 
   factory CartItem.fromJson(Map<String, dynamic> json) {
-
     final variety = json['variety'];
 
     return CartItem(

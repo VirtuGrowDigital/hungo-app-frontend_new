@@ -26,57 +26,77 @@ class AllAddressesModel {
 
 class Data {
   String? sId;
+  String? label;
   String? houseNumber;
   String? area;
+  String? landmark;
   String? pinCode;
   String? city;
   String? state;
+  String? fullAddress;
+  double? latitude;
+  double? longitude;
   bool? isDefault;
-  String? userId;
+  bool? isServiceable;
+  double? distanceInKm;
   String? createdAt;
   String? updatedAt;
-  int? iV;
 
   Data(
       {this.sId,
+        this.label,
         this.houseNumber,
         this.area,
+        this.landmark,
         this.pinCode,
         this.city,
         this.state,
+        this.fullAddress,
+        this.latitude,
+        this.longitude,
         this.isDefault,
-        this.userId,
+        this.isServiceable,
+        this.distanceInKm,
         this.createdAt,
-        this.updatedAt,
-        this.iV});
+        this.updatedAt});
 
   Data.fromJson(Map<String, dynamic> json) {
     sId = json['_id'];
+    label = json['label'];
     houseNumber = json['houseNumber'];
     area = json['area'];
+    landmark = json['landmark'];
     pinCode = json['pinCode'];
     city = json['city'];
     state = json['state'];
+    fullAddress = json['fullAddress'];
+    latitude = (json['latitude'] as num?)?.toDouble();
+    longitude = (json['longitude'] as num?)?.toDouble();
     isDefault = json['isDefault'];
-    userId = json['userId'];
+    isServiceable = json['isServiceable'];
+    distanceInKm = (json['distanceInKm'] as num?)?.toDouble();
     createdAt = json['createdAt'];
     updatedAt = json['updatedAt'];
-    iV = json['__v'];
   }
 
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> data = <String, dynamic>{};
     data['_id'] = sId;
+    data['label'] = label;
     data['houseNumber'] = houseNumber;
     data['area'] = area;
+    data['landmark'] = landmark;
     data['pinCode'] = pinCode;
     data['city'] = city;
     data['state'] = state;
+    data['fullAddress'] = fullAddress;
+    data['latitude'] = latitude;
+    data['longitude'] = longitude;
     data['isDefault'] = isDefault;
-    data['userId'] = userId;
+    data['isServiceable'] = isServiceable;
+    data['distanceInKm'] = distanceInKm;
     data['createdAt'] = createdAt;
     data['updatedAt'] = updatedAt;
-    data['__v'] = iV;
     return data;
   }
 }
