@@ -134,6 +134,9 @@ dependencies:
   flutter_image_compress: ^2.4.0
   geolocator: ^14.0.2
   geocoding: ^4.0.0
+  google_maps_flutter: ^2.12.1
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
   dio: ^5.9.0
   flutter_secure_storage: ^10.0.0
   connectivity_plus: ^7.0.0

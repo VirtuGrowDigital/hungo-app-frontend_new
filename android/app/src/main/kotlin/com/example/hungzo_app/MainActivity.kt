@@ -1,5 +1,6 @@
 package com.example.hungzo_app
 
+import android.content.pm.PackageManager
 import android.nfc.NfcAdapter
 import android.nfc.Tag
 import android.nfc.tech.IsoDep
@@ -8,7 +9,8 @@ import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
 
-    private val CHANNEL = "iso7816_nfc"
+    private val nfcChannel = "iso7816_nfc"
+    private val mapConfigChannel = "hungzo_app/map_config"
     private var nfcAdapter: NfcAdapter? = null
 
     override fun configureFlutterEngine(flutterEngine: io.flutter.embedding.engine.FlutterEngine) {
@@ -16,11 +18,20 @@ class MainActivity : FlutterActivity() {
 
         nfcAdapter = NfcAdapter.getDefaultAdapter(this)
 
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, nfcChannel)
             .setMethodCallHandler { call, result ->
                 if (call.method == "startReader") {
                     enableReader()
                     result.success(null)
+                }
+            }
+
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, mapConfigChannel)
+            .setMethodCallHandler { call, result ->
+                if (call.method == "hasMapsApiKey") {
+                    result.success(hasMapsApiKey())
+                } else {
+                    result.notImplemented()
                 }
             }
     }
@@ -63,7 +74,7 @@ class MainActivity : FlutterActivity() {
                 runOnUiThread {
                     MethodChannel(
                         flutterEngine!!.dartExecutor.binaryMessenger,
-                        CHANNEL
+                        nfcChannel
                     ).invokeMethod("readIso7816", hex)
                 }
 
@@ -71,5 +82,18 @@ class MainActivity : FlutterActivity() {
                 e.printStackTrace()
             }
         }.start()
+    }
+
+    private fun hasMapsApiKey(): Boolean {
+        return try {
+            val applicationInfo = packageManager.getApplicationInfo(
+                packageName,
+                PackageManager.GET_META_DATA
+            )
+            val value = applicationInfo.metaData?.getString("com.google.android.geo.API_KEY")
+            !value.isNullOrBlank() && value != "\${MAPS_API_KEY}"
+        } catch (e: Exception) {
+            false
+        }
     }
 }

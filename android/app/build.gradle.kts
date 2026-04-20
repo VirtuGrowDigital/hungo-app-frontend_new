@@ -7,6 +7,18 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
+val localProperties = Properties()
+val localPropertiesFile = rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    localProperties.load(FileInputStream(localPropertiesFile))
+}
+
+val mapsApiKey =
+    localProperties.getProperty("MAPS_API_KEY")
+        ?: project.findProperty("MAPS_API_KEY") as String?
+        ?: System.getenv("MAPS_API_KEY")
+        ?: ""
+
 plugins {
     id("com.android.application")
     id("com.google.gms.google-services")
@@ -34,6 +46,7 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey
     }
 
     signingConfigs {

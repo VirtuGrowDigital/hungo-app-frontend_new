@@ -5,6 +5,8 @@
 <!-- Location -->
 <key>NSLocationWhenInUseUsageDescription</key>
 <string>This app needs location access</string>
+<key>GoogleMapsApiKey</key>
+<string>$(MAPS_API_KEY)</string>
 
 <!-- Notifications -->
 <key>NSUserNotificationUsageDescription</key>
