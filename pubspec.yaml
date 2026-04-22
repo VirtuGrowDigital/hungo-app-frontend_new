@@ -101,7 +101,7 @@ name: hungzo_app
 description: "A new Flutter project."
 publish_to: 'none'
 
-version: 1.0.0+2
+version: 1.0.0+3
 
 environment:
   sdk: ">=3.0.0 <4.0.0"
@@ -176,8 +176,7 @@ flutter:
 flutter_launcher_icons:
   android: true
   ios: true
-  web: true
-  image_path: "assets/logo/hunzo_main_logo.png"
+  image_path: "assets/logo/hungzo_app_icon.jpeg"
   remove_alpha_ios: true
   adaptive_icon_background: "#FFFFFF"
-  adaptive_icon_foreground: "assets/logo/hunzo_main_logo.png"
+  adaptive_icon_foreground: "assets/logo/hungzo_app_icon.jpeg"

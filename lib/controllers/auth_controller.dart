@@ -257,7 +257,6 @@
 //   }
 // }
 
-
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -296,31 +295,40 @@ class AuthController extends GetxController {
       await _auth.verifyPhoneNumber(
         phoneNumber: phone,
         verificationCompleted: (_) {},
-
         verificationFailed: (e) {
           isLoading.value = false;
+          print(
+            'Phone verification failed: code=${e.code}, message=${e.message}',
+          );
+          print('Phone verification exception: $e');
           CustomSnackBar(
             e.message ?? TextConstants.verificationFailed,
             'E',
           );
         },
-
         codeSent: (verificationId, resendToken) {
           _resendToken = resendToken;
           isLoading.value = false;
 
           Get.to(() => OTPVerificationScreen(
-            phoneNumber: phone,
-            verificationId: verificationId,
-          ));
+                phoneNumber: phone,
+                verificationId: verificationId,
+              ));
         },
-
         codeAutoRetrievalTimeout: (_) {
           isLoading.value = false;
         },
       );
+    } on FirebaseAuthException catch (e) {
+      isLoading.value = false;
+      print(
+        'verifyPhoneNumber threw FirebaseAuthException: code=${e.code}, message=${e.message}',
+      );
+      print('verifyPhoneNumber exception: $e');
+      CustomSnackBar(e.message ?? TextConstants.verificationFailed, 'E');
     } catch (e) {
       isLoading.value = false;
+      print('verifyPhoneNumber threw unexpected error: $e');
       CustomSnackBar(e.toString(), 'E');
     }
   }
@@ -343,8 +351,7 @@ class AuthController extends GetxController {
         smsCode: otp,
       );
 
-      final userCred =
-      await _auth.signInWithCredential(credential);
+      final userCred = await _auth.signInWithCredential(credential);
 
       await _handleUserLogin(userCred.user!);
     } on FirebaseAuthException catch (e) {
@@ -361,26 +368,25 @@ class AuthController extends GetxController {
 
   /// ================= USER CHECK =================
   Future<void> _handleUserLogin(User user) async {
-    final doc =
-    await _db.collection('users').doc(user.uid).get();
+    final doc = await _db.collection('users').doc(user.uid).get();
 
     /// ✅ EXISTING USER
     if (doc.exists) {
       try {
         final firebaseToken = await user.getIdToken(true);
         print("Firebase tockan $firebaseToken");
-        await secureStorage.write(key: Constants.fcmToken, value: '$firebaseToken');
+        await secureStorage.write(
+            key: Constants.fcmToken, value: '$firebaseToken');
 
         final apiService = ApiService(dio: Dio());
         await apiService.firebaseLogin(firebaseToken!);
 
         Get.offAll(
-              () => const HomeView(),
+          () => const HomeView(),
           binding: HomeBinding(),
         );
       } catch (e) {
-        Message_Utils.displayToast(
-            'Login failed. Please try again.');
+        Message_Utils.displayToast('Login failed. Please try again.');
       }
     }
 
@@ -388,7 +394,8 @@ class AuthController extends GetxController {
     else {
       final firebaseToken = await user.getIdToken(true);
       print("Firebase tockan $firebaseToken");
-      await secureStorage.write(key: Constants.fcmToken, value: '$firebaseToken');
+      await secureStorage.write(
+          key: Constants.fcmToken, value: '$firebaseToken');
 
       final apiService = ApiService(dio: Dio());
       await apiService.firebaseLogin(firebaseToken!);
@@ -402,10 +409,7 @@ class AuthController extends GetxController {
     try {
       /// 1️⃣ SAVE USER TO FIRESTORE
       print("SAVE USER TO FIRESTORE");
-      await _db
-          .collection('users')
-          .doc(userModel.uid)
-          .set(userModel.toMap());
+      await _db.collection('users').doc(userModel.uid).set(userModel.toMap());
 
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
@@ -422,8 +426,7 @@ class AuthController extends GetxController {
       //   key: Constants.accessToken,
       //   value: 'firebaseToken',
       // );
-      final token =
-      await secureStorage.read(key: Constants.fcmToken);
+      final token = await secureStorage.read(key: Constants.fcmToken);
       if (token == null) {
         throw Exception('Backend token missing');
       }
@@ -441,21 +444,20 @@ class AuthController extends GetxController {
           "pincode": userModel.pincode,
         }
       };
-print("SAVE USER TO FIRESTORE $requestBody");
-      final result =
-      await apiService.firebaseRegister(requestBody);
+      print("SAVE USER TO FIRESTORE $requestBody");
+      final result = await apiService.firebaseRegister(requestBody);
 
-      if (result.message == "Restaurant registered successfully" || result.message =="Restaurant already registered") {
+      if (result.message == "Restaurant registered successfully" ||
+          result.message == "Restaurant already registered") {
         print("result.status ${result.status}");
         Get.offAll(
-              () => const HomeView(),
+          () => const HomeView(),
           binding: HomeBinding(),
         );
       } else {
         print("SAVE USER TO FIRESTORE ${result.message}");
 
-        Message_Utils.displayToast(
-            result.message ?? 'Registration failed');
+        Message_Utils.displayToast(result.message ?? 'Registration failed');
       }
     } catch (e) {
       print("SAVE USER TO FIRESTORE ${e}");
@@ -472,23 +474,29 @@ print("SAVE USER TO FIRESTORE $requestBody");
       await _auth.verifyPhoneNumber(
         phoneNumber: phone,
         forceResendingToken: _resendToken,
-
         verificationCompleted: (_) {},
-
         verificationFailed: (e) {
+          print(
+            'Resend OTP failed: code=${e.code}, message=${e.message}',
+          );
+          print('Resend OTP exception: $e');
           CustomSnackBar(
             e.message ?? TextConstants.verificationFailed,
             'E',
           );
         },
-
         codeSent: (_, resendToken) {
           _resendToken = resendToken;
           CustomSnackBar(TextConstants.otpResent, 'S');
         },
-
         codeAutoRetrievalTimeout: (_) {},
       );
+    } on FirebaseAuthException catch (e) {
+      print(
+        'resendOTP threw FirebaseAuthException: code=${e.code}, message=${e.message}',
+      );
+      print('resendOTP exception: $e');
+      CustomSnackBar(e.message ?? TextConstants.verificationFailed, 'E');
     } finally {
       isResending.value = false;
     }
@@ -505,9 +513,8 @@ print("SAVE USER TO FIRESTORE $requestBody");
     required String uid,
   }) async {
     try {
-      final ref = FirebaseStorage.instance
-          .ref()
-          .child('users/profile_photos/$uid.jpg');
+      final ref =
+          FirebaseStorage.instance.ref().child('users/profile_photos/$uid.jpg');
 
       await ref.putFile(image);
       return await ref.getDownloadURL();

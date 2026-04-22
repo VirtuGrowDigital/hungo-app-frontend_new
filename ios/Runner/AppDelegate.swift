@@ -1,4 +1,6 @@
 import Flutter
+import FirebaseAuth
+import FirebaseCore
 import GoogleMaps
 import UIKit
 
@@ -10,6 +12,10 @@ import UIKit
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
+    if FirebaseApp.app() == nil {
+      FirebaseApp.configure()
+    }
+
     if let apiKey = Bundle.main.object(forInfoDictionaryKey: "GoogleMapsApiKey") as? String,
        !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
       GMSServices.provideAPIKey(apiKey)
@@ -31,6 +37,31 @@ import UIKit
     }
 
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
+
+  override func application(
+    _ app: UIApplication,
+    open url: URL,
+    options: [UIApplication.OpenURLOptionsKey: Any] = [:]
+  ) -> Bool {
+    if Auth.auth().canHandle(url) {
+      return true
+    }
+
+    return super.application(app, open: url, options: options)
+  }
+
+  override func application(
+    _ application: UIApplication,
+    didReceiveRemoteNotification notification: [AnyHashable: Any],
+    fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
+  ) {
+    if Auth.auth().canHandleNotification(notification) {
+      completionHandler(.noData)
+      return
+    }
+
+    completionHandler(.noData)
   }
 
   private func hasMapsApiKey() -> Bool {

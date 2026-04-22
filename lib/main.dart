@@ -81,8 +81,6 @@
 //   }
 // }
 
-
-
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -105,20 +103,20 @@ import 'firebase_login_screen.dart';
 import 'firebase_options.dart';
 
 void main() async {
-
-  Get.put(OrderController(), permanent: true); // 🔥 ONLY ONCE
-  Get.put(HomeController(), permanent: true); // 🔥 ensures controller exists always
-
-
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  Get.put(OrderController(), permanent: true); // 🔥 ONLY ONCE
+  Get.put(HomeController(),
+      permanent: true); // 🔥 ensures controller exists always
+
   runApp(const MyApp());
 }
 
-final GlobalKey<NavigatorState> rootNavigatorKey =
-GlobalKey<NavigatorState>();
+final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
+
 // Using ValueNotifier to dynamically switch theme
 class MyApp extends StatefulWidget {
   const MyApp({super.key});
@@ -128,7 +126,8 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  final ValueNotifier<ThemeMode> _themeNotifier = ValueNotifier(ThemeMode.light);
+  final ValueNotifier<ThemeMode> _themeNotifier =
+      ValueNotifier(ThemeMode.light);
 
   void _toggleTheme() {
     _themeNotifier.value = _themeNotifier.value == ThemeMode.light
@@ -162,7 +161,8 @@ class _MyAppState extends State<MyApp> {
           darkTheme: ThemeData(
             brightness: Brightness.dark,
             primaryColor: ColorConstants.primaryDark,
-            scaffoldBackgroundColor: ColorConstants.primaryDark.withOpacity(0.9),
+            scaffoldBackgroundColor:
+                ColorConstants.primaryDark.withOpacity(0.9),
             colorScheme: ColorScheme.dark(
               primary: ColorConstants.primaryDark,
               secondary: ColorConstants.accent,

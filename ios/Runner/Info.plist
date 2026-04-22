@@ -5,6 +5,8 @@
 <!-- Location -->
 <key>NSLocationWhenInUseUsageDescription</key>
 <string>This app needs location access</string>
+<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+<string>This app needs location access to show your delivery area and provide location-based services.</string>
 <key>GoogleMapsApiKey</key>
 <string>$(MAPS_API_KEY)</string>
 
@@ -19,15 +21,26 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Hungzo App</string>
+	<string>MobileMeals Hungzo</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>app-1-255529326168-ios-a8b9f47ac7f1a3db2d1c2d</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleName</key>
-	<string>hungzo_app</string>
+	<string>mobilemeals_hungzo</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -42,6 +55,11 @@
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>remote-notification</string>
+	</array>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
