@@ -8,7 +8,6 @@ import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
 
 import '../constants/constants.dart';
-import '../utils/ColorConstants.dart';
 import 'order_details_screen.dart';
 
 /// =====================
@@ -64,9 +63,7 @@ class MyOrdersScreen extends StatelessWidget {
     final utcTime = DateTime.parse(order.createdAt);
     final istTime = utcTime.toLocal(); // Converts UTC to device local (India)
 
-    final date = DateFormat("dd MMM yyyy, hh:mm a")
-        .format(istTime);
-
+    final date = DateFormat("dd MMM yyyy, hh:mm a").format(istTime);
 
     final String status = order.displayStatus;
 
@@ -124,7 +121,6 @@ class MyOrdersScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-
           /// DATE + STATUS
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -139,8 +135,8 @@ class MyOrdersScreen extends StatelessWidget {
 
               /// Modern Status Badge
               Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 12, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: statusColor.withOpacity(0.08),
                   borderRadius: BorderRadius.circular(30),
@@ -174,9 +170,9 @@ class MyOrdersScreen extends StatelessWidget {
             return InkWell(
               onTap: () {
                 Get.to(() => OrderDetailsScreen(
-                  order: order,
-                  selectedItem: item,
-                ));
+                      order: order,
+                      selectedItem: item,
+                    ));
               },
               child: _orderItem(item, order),
             );
@@ -197,11 +193,11 @@ class MyOrdersScreen extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
             child: item.image.isNotEmpty
                 ? Image.network(
-              item.image,
-              height: 50,
-              width: 50,
-              fit: BoxFit.cover,
-            )
+                    item.image,
+                    height: 50,
+                    width: 50,
+                    fit: BoxFit.cover,
+                  )
                 : _placeholderImage(),
           ),
           const SizedBox(width: 12),
@@ -230,7 +226,6 @@ class MyOrdersScreen extends StatelessWidget {
               symbol: '₹',
             ).format(order.totalAmount),
           )
-
         ],
       ),
     );
@@ -376,8 +371,11 @@ class OrderModel {
   final String paymentStatus;
   final String createdAt;
   final List<OrderItem> items;
-  final double totalAmount; // 👈 ADD THIS
-
+  final double subTotal;
+  final double deliveryCharge;
+  final double platformFee;
+  final double gstAmount;
+  final double totalAmount;
 
   OrderModel({
     required this.id,
@@ -385,6 +383,10 @@ class OrderModel {
     required this.paymentStatus,
     required this.createdAt,
     required this.items,
+    required this.subTotal,
+    required this.deliveryCharge,
+    required this.platformFee,
+    required this.gstAmount,
     required this.totalAmount,
   });
 
@@ -401,8 +403,8 @@ class OrderModel {
 
   bool get isOngoing =>
       displayStatus == "Pending" ||
-          displayStatus == "Accepted" ||
-          displayStatus == "Out for Delivery";
+      displayStatus == "Accepted" ||
+      displayStatus == "Out for Delivery";
 
   factory OrderModel.fromJson(Map<String, dynamic> json) {
     return OrderModel(
@@ -413,8 +415,11 @@ class OrderModel {
       items: (json['items'] as List? ?? [])
           .map((x) => OrderItem.fromJson(x))
           .toList(),
+      subTotal: (json['subTotal'] ?? 0).toDouble(),
+      deliveryCharge: (json['deliveryCharge'] ?? 0).toDouble(),
+      platformFee: (json['platformFee'] ?? 0).toDouble(),
+      gstAmount: (json['gstAmount'] ?? 0).toDouble(),
       totalAmount: (json['totalAmount'] ?? 0).toDouble(),
-
     );
   }
 }
@@ -457,8 +462,7 @@ class OrderItem {
 
     if (product != null) {
       productId = product['_id'] ?? '';
-      if (product['images'] is List &&
-          product['images'].isNotEmpty) {
+      if (product['images'] is List && product['images'].isNotEmpty) {
         imageUrl = product['images'][0];
       }
     }

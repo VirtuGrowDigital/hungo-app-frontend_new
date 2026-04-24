@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "com.example" "\0"
-            VALUE "FileDescription", "hungzo_app" "\0"
+            VALUE "FileDescription", "Hungzo" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "hungzo_app" "\0"
+            VALUE "InternalName", "Hungzo" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2025 com.example. All rights reserved." "\0"
-            VALUE "OriginalFilename", "hungzo_app.exe" "\0"
-            VALUE "ProductName", "hungzo_app" "\0"
+            VALUE "OriginalFilename", "Hungzo.exe" "\0"
+            VALUE "ProductName", "Hungzo" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

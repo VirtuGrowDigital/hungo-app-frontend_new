@@ -1,4 +1,4 @@
-package com.example.hungzo_app
+package com.hungzo.app
 
 import android.content.pm.PackageManager
 import android.nfc.NfcAdapter

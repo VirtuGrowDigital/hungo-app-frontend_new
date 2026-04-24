@@ -1,4 +1,4 @@
-# hungzo_app
+# Hungzo
 
 A new Flutter project.
 

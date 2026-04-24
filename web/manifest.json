@@ -1,6 +1,6 @@
 {
-    "name": "hungzo_app",
-    "short_name": "hungzo_app",
+    "name": "Hungzo",
+    "short_name": "Hungzo",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

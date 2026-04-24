@@ -24,6 +24,8 @@ class AddAddressModel {
 
 class Data {
   String? label;
+  String? receiverName;
+  String? receiverPhone;
   String? houseNumber;
   String? area;
   String? landmark;
@@ -42,6 +44,8 @@ class Data {
 
   Data({
     this.label,
+    this.receiverName,
+    this.receiverPhone,
     this.houseNumber,
     this.area,
     this.landmark,
@@ -61,6 +65,8 @@ class Data {
 
   Data.fromJson(Map<String, dynamic> json) {
     label = json['label'];
+    receiverName = json['receiverName'];
+    receiverPhone = json['receiverPhone'];
     houseNumber = json['houseNumber'];
     area = json['area'];
     landmark = json['landmark'];
@@ -81,6 +87,8 @@ class Data {
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> data = <String, dynamic>{};
     data['label'] = this.label;
+    data['receiverName'] = this.receiverName;
+    data['receiverPhone'] = this.receiverPhone;
     data['houseNumber'] = this.houseNumber;
     data['area'] = this.area;
     data['landmark'] = this.landmark;

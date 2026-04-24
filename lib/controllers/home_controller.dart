@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -9,24 +10,35 @@ import '../screens/notification_screen.dart';
 import '../screens/account_settings_screen.dart';
 import '../controllers/cart_controller.dart';
 import '../services/Api/api_constants.dart';
-import '../services/firbase/permission_service.dart';
+import '../services/permissions/app_permission_service.dart';
 
 class HomeController extends GetxController {
   /// Bottom navigation index
   final RxInt bottomIndex = 0.obs;
   RxBool isLoading = true.obs;
+
   /// ================= FILTER STATE =================
 
   final RxnInt sortIndex = RxnInt(); // nullable
   final RxBool ratingFilter = false.obs;
   final RxBool priceFilter = false.obs;
+  final RxBool isSearchLoading = false.obs;
+  final RxString searchQuery = ''.obs;
+  final RxString searchError = ''.obs;
+  final TextEditingController searchTextController = TextEditingController();
+  final FocusNode searchFocusNode = FocusNode();
+  Timer? _searchDebounce;
+  int _searchRequestId = 0;
+
   /// ================= BANNERS =================
   final String bannerApiUrl = "${ApiConstants.baseURL}banners";
+  final String searchApiUrl = "${ApiConstants.baseURL}products/search";
 
   final RxList<String> bannerImages = <String>[].obs;
 
   /// original products (backup)
   List<Map<String, dynamic>> originalProducts = [];
+
   /// Bottom navigation icons
   final List<IconData> iconList = const [
     Icons.home,
@@ -53,10 +65,6 @@ class HomeController extends GetxController {
   void onInit() {
     super.onInit();
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      PermissionService.requestAllPermissions(Get.context!);
-    });
-
     fetchCategories();
     fetchBanners(); // 🔥 ADD THIS
 
@@ -64,8 +72,15 @@ class HomeController extends GetxController {
     Get.put(CartController(), permanent: true);
   }
 
-  void applyFilters() {
+  @override
+  void onClose() {
+    _searchDebounce?.cancel();
+    searchTextController.dispose();
+    searchFocusNode.dispose();
+    super.onClose();
+  }
 
+  void applyFilters() {
     List<Map<String, dynamic>> filtered = [...originalProducts];
 
     // =================================================
@@ -74,7 +89,6 @@ class HomeController extends GetxController {
 
     if (priceFilter.value) {
       filtered = filtered.where((p) {
-
         final varieties = p["varieties"] as List?;
 
         if (varieties == null || varieties.isEmpty) return false;
@@ -90,14 +104,10 @@ class HomeController extends GetxController {
     // =================================================
 
     if (sortIndex.value != null) {
-
       filtered.sort((a, b) {
+        final aPrice = (a["varieties"][0]["price"] ?? 0).toDouble();
 
-        final aPrice =
-        (a["varieties"][0]["price"] ?? 0).toDouble();
-
-        final bPrice =
-        (b["varieties"][0]["price"] ?? 0).toDouble();
+        final bPrice = (b["varieties"][0]["price"] ?? 0).toDouble();
 
         if (sortIndex.value == 1) {
           return aPrice.compareTo(bPrice); // low → high
@@ -121,7 +131,6 @@ class HomeController extends GetxController {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-print("Product data $data");
         if (data["success"] == true) {
           categories.assignAll(
             List<Map<String, dynamic>>.from(data["menu"]),
@@ -132,7 +141,7 @@ print("Product data $data");
 
             /// 🔥 SAVE BACKUP
             originalProducts =
-            List<Map<String, dynamic>>.from(categories.first["products"]);
+                List<Map<String, dynamic>>.from(categories.first["products"]);
 
             products.assignAll(originalProducts);
           }
@@ -144,42 +153,149 @@ print("Product data $data");
       isLoading.value = false;
     }
   }
+
   void clearFilters() {
     sortIndex.value = null;
     ratingFilter.value = false;
     priceFilter.value = false;
+
+    if (isSearching) {
+      onSearchChanged(searchQuery.value);
+      return;
+    }
 
     products.assignAll(originalProducts);
   }
 
   /// ================= CATEGORY CHANGE =================
   void changeCategory(String categoryName) {
-
     selectedCategory.value = categoryName;
 
     final category = categories.firstWhere(
-          (c) => c["category"] == categoryName,
+      (c) => c["category"] == categoryName,
       orElse: () => {},
     );
 
     if (category.isNotEmpty) {
-
       /// 🔥 reset filters when category changes
       sortIndex.value = null;
       ratingFilter.value = false;
       priceFilter.value = false;
 
       /// 🔥 update backup
-      originalProducts =
-      List<Map<String, dynamic>>.from(category["products"]);
+      originalProducts = List<Map<String, dynamic>>.from(category["products"]);
 
       /// 🔥 show raw products (NO FILTER)
       products.assignAll(originalProducts);
     }
   }
 
+  bool get isSearching => searchQuery.value.trim().isNotEmpty;
+
+  void onSearchChanged(String value) {
+    final normalizedValue = value.trimLeft();
+
+    if (normalizedValue != value) {
+      searchTextController.value = TextEditingValue(
+        text: normalizedValue,
+        selection: TextSelection.collapsed(offset: normalizedValue.length),
+      );
+    }
+
+    searchQuery.value = normalizedValue;
+    searchError.value = '';
+    _searchDebounce?.cancel();
+
+    final trimmedQuery = normalizedValue.trim();
+
+    if (trimmedQuery.isEmpty) {
+      isSearchLoading.value = false;
+      _restoreSelectedCategoryProducts();
+      return;
+    }
+
+    _searchDebounce = Timer(
+      const Duration(milliseconds: 450),
+      () => searchProducts(trimmedQuery),
+    );
+  }
+
+  Future<void> searchProducts(String query) async {
+    final activeRequestId = ++_searchRequestId;
+
+    try {
+      isSearchLoading.value = true;
+      searchError.value = '';
+
+      final uri = Uri.parse(searchApiUrl).replace(queryParameters: {
+        'q': query,
+        'limit': '20',
+      });
+
+      final response = await http.get(uri);
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+
+        if (activeRequestId != _searchRequestId ||
+            searchQuery.value.trim() != query.trim()) {
+          return;
+        }
+
+        if (data['success'] == true) {
+          products.assignAll(
+            List<Map<String, dynamic>>.from(data['products'] ?? []),
+          );
+          return;
+        }
+
+        searchError.value = data['message']?.toString() ?? 'Search failed';
+      } else {
+        searchError.value = 'Unable to search right now';
+      }
+    } catch (e) {
+      debugPrint("SEARCH API ERROR: $e");
+      searchError.value = 'Unable to search right now';
+    } finally {
+      isSearchLoading.value = false;
+    }
+  }
+
+  void clearSearch() {
+    _searchDebounce?.cancel();
+    _searchRequestId++;
+    searchTextController.clear();
+    searchQuery.value = '';
+    searchError.value = '';
+    isSearchLoading.value = false;
+    _restoreSelectedCategoryProducts();
+    searchFocusNode.unfocus();
+  }
+
+  void _restoreSelectedCategoryProducts() {
+    if (selectedCategory.value.isEmpty) {
+      products.assignAll(originalProducts);
+      return;
+    }
+
+    final category = categories.firstWhere(
+      (c) => c["category"] == selectedCategory.value,
+      orElse: () => {},
+    );
+
+    if (category.isNotEmpty) {
+      originalProducts = List<Map<String, dynamic>>.from(category["products"]);
+    }
+
+    products.assignAll(originalProducts);
+  }
+
   /// ================= TAB CHANGE (🔥 FIX HERE) =================
-  void changeTab(int index) {
+  Future<void> changeTab(int index) async {
+    if (index == 2 && Get.context != null) {
+      await AppPermissionService.ensureNotificationAccess(Get.context!);
+    }
+
     bottomIndex.value = index;
 
     /// 🔥 WHEN CART TAB IS OPENED
@@ -187,6 +303,7 @@ print("Product data $data");
       Get.find<CartController>().fetchCart();
     }
   }
+
   /// ================= BANNER API =================
   Future<void> fetchBanners() async {
     try {
@@ -212,5 +329,4 @@ print("Product data $data");
       debugPrint("Banner API ERROR: $e");
     }
   }
-
 }

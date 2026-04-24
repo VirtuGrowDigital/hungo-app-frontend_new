@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../controllers/home_controller.dart';
+import '../../utils/ImageConstant.dart';
 
 class CustomBottomNav extends StatelessWidget {
   CustomBottomNav({super.key});
@@ -54,8 +55,7 @@ class CustomBottomNav extends StatelessWidget {
                   padding: const EdgeInsets.all(6),
                   child: CircleAvatar(
                     backgroundColor: Colors.green.shade100,
-                    backgroundImage:
-                    const AssetImage("assets/logo.png"),
+                    backgroundImage: const AssetImage(ImageConstant.logoHungZo),
                   ),
                 ),
               ),
@@ -72,9 +72,8 @@ class CustomBottomNav extends StatelessWidget {
       child: Icon(
         icon,
         size: 26,
-        color: controller.bottomIndex.value == index
-            ? Colors.green
-            : Colors.grey,
+        color:
+            controller.bottomIndex.value == index ? Colors.green : Colors.grey,
       ),
     );
   }

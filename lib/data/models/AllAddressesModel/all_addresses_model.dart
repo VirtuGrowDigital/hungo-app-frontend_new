@@ -27,6 +27,8 @@ class AllAddressesModel {
 class Data {
   String? sId;
   String? label;
+  String? receiverName;
+  String? receiverPhone;
   String? houseNumber;
   String? area;
   String? landmark;
@@ -45,6 +47,8 @@ class Data {
   Data(
       {this.sId,
         this.label,
+        this.receiverName,
+        this.receiverPhone,
         this.houseNumber,
         this.area,
         this.landmark,
@@ -63,6 +67,8 @@ class Data {
   Data.fromJson(Map<String, dynamic> json) {
     sId = json['_id'];
     label = json['label'];
+    receiverName = json['receiverName'];
+    receiverPhone = json['receiverPhone'];
     houseNumber = json['houseNumber'];
     area = json['area'];
     landmark = json['landmark'];
@@ -83,6 +89,8 @@ class Data {
     final Map<String, dynamic> data = <String, dynamic>{};
     data['_id'] = sId;
     data['label'] = label;
+    data['receiverName'] = receiverName;
+    data['receiverPhone'] = receiverPhone;
     data['houseNumber'] = houseNumber;
     data['area'] = area;
     data['landmark'] = landmark;

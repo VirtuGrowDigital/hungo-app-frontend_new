@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:hungzo_app/services/permissions/app_permission_service.dart';
 import 'package:hungzo_app/utils/ColorConstants.dart';
 import 'package:latlong2/latlong.dart' as latlng;
 
@@ -133,20 +134,14 @@ class _PickAddressOnMapScreenState extends State<PickAddressOnMapScreen> {
     setState(() => _isFetchingCurrentLocation = true);
 
     try {
-      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        _showSnackBar("Turn on location services");
-        return;
-      }
+      final permission = await AppPermissionService.ensureLocationAccess(
+        context,
+        title: "Use your current location",
+        message:
+            "Allow location access to move the map to your current position and make picking an address faster.",
+      );
 
-      var permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
-        _showSnackBar("Location permission required");
+      if (permission != PermissionRequestOutcome.granted) {
         return;
       }
 

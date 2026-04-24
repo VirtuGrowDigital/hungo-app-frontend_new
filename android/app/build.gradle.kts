@@ -27,7 +27,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.hungzo_app"
+    namespace = "com.hungzo.app"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 

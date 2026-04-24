@@ -1,3 +1,5 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:geocoding/geocoding.dart';
@@ -8,15 +10,18 @@ import 'package:hungzo_app/screens/pick_address_on_map_screen.dart';
 import 'package:hungzo_app/screens/payment_method_screen.dart';
 import 'package:hungzo_app/services/Api/api_services.dart';
 import 'package:hungzo_app/services/Api/dio_client.dart';
+import 'package:hungzo_app/services/permissions/app_permission_service.dart';
 
 import '../utils/ColorConstants.dart';
 
 class SelectLocationScreen extends StatefulWidget {
   final String fulfillmentType;
+  final bool returnSelection;
 
   const SelectLocationScreen({
     super.key,
     required this.fulfillmentType,
+    this.returnSelection = false,
   });
 
   @override
@@ -77,25 +82,31 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
     _savedAddresses = response.data ?? [];
   }
 
-  Future<void> _loadCurrentLocation({bool selectByDefault = false}) async {
+  Future<void> _loadCurrentLocation({
+    bool selectByDefault = false,
+    bool promptIfNeeded = false,
+  }) async {
     if (mounted) {
       setState(() => _isRefreshingLocation = true);
     }
 
     try {
-      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        throw "Location service is turned off";
-      }
+      final dialogContext = context;
+      if (!mounted) return;
+      final permission = promptIfNeeded
+          ? await AppPermissionService.ensureLocationAccess(
+              dialogContext,
+              title: "Use your current location",
+              message:
+                  "Allow location access to detect your current address and check whether we can deliver there.",
+            )
+          : await _currentLocationPermissionState();
 
-      var permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
-        throw "Location permission is required to use current address";
+      if (permission != PermissionRequestOutcome.granted) {
+        if (mounted) {
+          setState(() => _currentAddress = null);
+        }
+        return;
       }
 
       final position = await Geolocator.getCurrentPosition(
@@ -132,6 +143,7 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
           place.administrativeArea,
           place.postalCode,
         ]),
+        receiverPhone: "",
         latitude: position.latitude,
         longitude: position.longitude,
         isDefault: true,
@@ -162,6 +174,23 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
         setState(() => _isRefreshingLocation = false);
       }
     }
+  }
+
+  Future<PermissionRequestOutcome> _currentLocationPermissionState() async {
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) return PermissionRequestOutcome.serviceDisabled;
+
+    final permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.always ||
+        permission == LocationPermission.whileInUse) {
+      return PermissionRequestOutcome.granted;
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      return PermissionRequestOutcome.blocked;
+    }
+
+    return PermissionRequestOutcome.denied;
   }
 
   Future<void> _openAddAddressSheet() async {
@@ -214,6 +243,18 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
       _showSnackBar(
         "Delivery is available only in Gwalior right now. Choose a serviceable address.",
       );
+      return;
+    }
+
+    if (widget.returnSelection) {
+      Navigator.pop(context, {
+        "addressId": selected.addressId,
+        "title": selected.title,
+        "fullAddress": selected.fullAddress,
+        "receiverPhone": selected.receiverPhone,
+        "latitude": selected.latitude,
+        "longitude": selected.longitude,
+      });
       return;
     }
 
@@ -323,7 +364,10 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
                           onPressed: _isRefreshingLocation
                               ? null
                               : () =>
-                                  _loadCurrentLocation(selectByDefault: true),
+                                  _loadCurrentLocation(
+                                    selectByDefault: true,
+                                    promptIfNeeded: true,
+                                  ),
                           icon: _isRefreshingLocation
                               ? const SizedBox(
                                   width: 20,
@@ -765,6 +809,7 @@ class _SelectableAddress {
   final String title;
   final String subtitle;
   final String fullAddress;
+  final String receiverPhone;
   final double latitude;
   final double longitude;
   final bool isDefault;
@@ -778,6 +823,7 @@ class _SelectableAddress {
     required this.title,
     required this.subtitle,
     required this.fullAddress,
+    required this.receiverPhone,
     required this.latitude,
     required this.longitude,
     required this.isDefault,
@@ -807,15 +853,17 @@ class _SelectableAddress {
     return _SelectableAddress(
       addressId: address.sId,
       label: (address.label ?? "Saved Address").trim(),
-      title: (address.houseNumber ?? address.area ?? "Saved address").trim(),
+      title: (address.receiverName ?? "Saved address").trim(),
       subtitle: [
-        address.area,
-        address.landmark,
+        if ((address.receiverPhone ?? "").trim().isNotEmpty)
+          "Phone: ${address.receiverPhone!.trim()}",
+        address.fullAddress,
         address.city,
         address.state,
         address.pinCode,
-      ].where((value) => (value ?? "").trim().isNotEmpty).join(", "),
+      ].where((value) => (value ?? "").trim().isNotEmpty).join("\n"),
       fullAddress: fullAddress,
+      receiverPhone: (address.receiverPhone ?? "").trim(),
       latitude: address.latitude ?? 0,
       longitude: address.longitude ?? 0,
       isDefault: address.isDefault ?? false,
@@ -851,19 +899,19 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
   static const double _serviceRadiusKm = 35;
 
   final _formKey = GlobalKey<FormState>();
-  final _labelController = TextEditingController(text: "Office");
-  final _houseController = TextEditingController();
-  final _areaController = TextEditingController();
-  final _landmarkController = TextEditingController();
-  final _cityController = TextEditingController(text: "Gwalior");
-  final _stateController = TextEditingController(text: "Madhya Pradesh");
-  final _pinCodeController = TextEditingController();
+  final _receiverNameController = TextEditingController();
+  final _receiverPhoneController = TextEditingController();
+  final _fullAddressController = TextEditingController();
 
   bool _isSaving = false;
   bool _isFetchingLocation = false;
   double? _latitude;
   double? _longitude;
   double? _distanceInKm;
+  String _area = "";
+  String _city = "";
+  String _state = "";
+  String _pinCode = "";
 
   @override
   void initState() {
@@ -878,13 +926,9 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
 
   @override
   void dispose() {
-    _labelController.dispose();
-    _houseController.dispose();
-    _areaController.dispose();
-    _landmarkController.dispose();
-    _cityController.dispose();
-    _stateController.dispose();
-    _pinCodeController.dispose();
+    _receiverNameController.dispose();
+    _receiverPhoneController.dispose();
+    _fullAddressController.dispose();
     super.dispose();
   }
 
@@ -892,19 +936,16 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
     setState(() => _isFetchingLocation = true);
 
     try {
-      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        throw "Turn on location service to auto-fill this address";
-      }
+      if (!mounted) return;
+      final permission = await AppPermissionService.ensureLocationAccess(
+        context,
+        title: "Auto-fill from your location",
+        message:
+            "Allow location access to auto-fill this address with your current position.",
+      );
 
-      var permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
-        throw "Location permission is required to save a geo-tagged address";
+      if (permission != PermissionRequestOutcome.granted) {
+        return;
       }
 
       final position = await Geolocator.getCurrentPosition(
@@ -968,8 +1009,13 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
     }
 
     setState(() {
+      final area = [
+        placemark?.subLocality,
+        placemark?.locality,
+      ].where((value) => (value ?? "").trim().isNotEmpty).join(", ");
       final city = (placemark?.locality ?? "").trim();
       final state = (placemark?.administrativeArea ?? "").trim();
+      final postalCode = (placemark?.postalCode ?? "").trim();
 
       _latitude = latitude;
       _longitude = longitude;
@@ -980,17 +1026,18 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
             _gwaliorCenterLng,
           ) /
           1000;
-      _houseController.text = [
+      _fullAddressController.text = [
         placemark?.name,
         placemark?.street,
-      ].where((value) => (value ?? "").trim().isNotEmpty).join(", ");
-      _areaController.text = [
         placemark?.subLocality,
         placemark?.locality,
+        placemark?.administrativeArea,
+        placemark?.postalCode,
       ].where((value) => (value ?? "").trim().isNotEmpty).join(", ");
-      _cityController.text = city.isNotEmpty ? city : "Gwalior";
-      _stateController.text = state.isNotEmpty ? state : "Madhya Pradesh";
-      _pinCodeController.text = placemark?.postalCode ?? "";
+      _area = area;
+      _city = city;
+      _state = state;
+      _pinCode = postalCode;
     });
   }
 
@@ -1009,17 +1056,30 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
       return;
     }
 
+    if (_city.isEmpty || _state.isEmpty || _pinCode.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            "Please select a map location with valid city, state, and pin code",
+          ),
+        ),
+      );
+      return;
+    }
+
     setState(() => _isSaving = true);
 
     try {
       final request = {
-        "label": _labelController.text.trim(),
-        "houseNumber": _houseController.text.trim(),
-        "area": _areaController.text.trim(),
-        "landmark": _landmarkController.text.trim(),
-        "city": _cityController.text.trim(),
-        "state": _stateController.text.trim(),
-        "pinCode": _pinCodeController.text.trim(),
+        "label": "Address",
+        "receiverName": _receiverNameController.text.trim(),
+        "receiverPhone": _receiverPhoneController.text.trim(),
+        "fullAddress": _fullAddressController.text.trim(),
+        "houseNumber": _fullAddressController.text.trim(),
+        "area": _area,
+        "city": _city,
+        "state": _state,
+        "pinCode": _pinCode,
         "latitude": _latitude,
         "longitude": _longitude,
       };
@@ -1063,14 +1123,11 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
 
   String? _validatePinCode(String? value) {
     if ((value ?? "").trim().isEmpty) {
-      return "Pin Code is required";
+      return "Phone number is required";
     }
     final trimmed = value!.trim();
-    if (trimmed.length != 6) {
-      return "Pin Code must be 6 digits";
-    }
-    if (!RegExp(r'^[0-9]+$').hasMatch(trimmed)) {
-      return "Pin Code must be numeric";
+    if (!RegExp(r'^[0-9]{10}$').hasMatch(trimmed)) {
+      return "Phone number must be 10 digits";
     }
     return null;
   }
@@ -1278,40 +1335,26 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
 
                     const SizedBox(height: 20),
 
-                    // Form fields
-                    _field(_labelController, "Address Label",
-                        hintText: "e.g., Home, Office, Other",
-                        prefixIcon: Icons.label_outline),
-                    _field(_houseController, "House / Building Name",
-                        hintText: "Enter house or building name",
-                        prefixIcon: Icons.home_outlined),
-                    _field(_areaController, "Area / Locality",
-                        hintText: "Enter your area or locality",
-                        prefixIcon: Icons.location_city_outlined),
-                    _field(_landmarkController, "Landmark (Optional)",
-                        hintText: "Nearby landmark",
-                        requiredField: false,
-                        prefixIcon: Icons.place_outlined),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _field(_cityController, "City",
-                              prefixIcon: Icons.business_outlined),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _field(_stateController, "State",
-                              prefixIcon: Icons.public_outlined),
-                        ),
-                      ],
+                    _field(
+                      _receiverNameController,
+                      "Receiver Name",
+                      hintText: "Enter receiver name",
+                      prefixIcon: Icons.person_outline,
                     ),
                     _field(
-                      _pinCodeController,
-                      "Pin Code",
+                      _receiverPhoneController,
+                      "Phone Number",
                       keyboardType: TextInputType.number,
-                      hintText: "Enter 6-digit pin code",
-                      prefixIcon: Icons.pin_outlined,
+                      hintText: "Enter 10-digit phone number",
+                      prefixIcon: Icons.phone_outlined,
                       validator: _validatePinCode,
+                    ),
+                    _field(
+                      _fullAddressController,
+                      "Complete Address",
+                      hintText: "Flat, building, street, landmark",
+                      prefixIcon: Icons.home_outlined,
+                      maxLines: 3,
                     ),
 
                     // Location info
@@ -1359,7 +1402,12 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
                                     ),
                                   ),
                                   Text(
-                                    "${_latitude!.toStringAsFixed(4)}, ${_longitude!.toStringAsFixed(4)}",
+                                    [
+                                      if (_city.isNotEmpty) _city,
+                                      if (_state.isNotEmpty) _state,
+                                      if (_pinCode.isNotEmpty) _pinCode,
+                                      "${_latitude!.toStringAsFixed(4)}, ${_longitude!.toStringAsFixed(4)}",
+                                    ].join(" • "),
                                     style: TextStyle(
                                       fontSize: 11,
                                       color: Colors.grey.shade600,
@@ -1475,12 +1523,14 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
     String? Function(String?)? validator,
     String? hintText,
     IconData? prefixIcon,
+    int maxLines = 1,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: TextFormField(
         controller: controller,
         keyboardType: keyboardType,
+        maxLines: maxLines,
         validator: validator ??
             (requiredField ? (value) => _required(value, label) : null),
         decoration: InputDecoration(

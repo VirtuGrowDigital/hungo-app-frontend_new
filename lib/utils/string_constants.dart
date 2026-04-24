@@ -5,8 +5,7 @@ class TextConstants {
   static const String enterPhoneNumber = 'Enter Phone Number';
   static const String continueText = 'Continue';
   static const String orText = 'Or';
-  static const String useAnotherMethod =
-      'Use Another Method To Sign In';
+  static const String useAnotherMethod = 'Use Another Method To Sign In';
 
   // OTP Screen
   static const String enterCode = 'Enter code';
@@ -17,24 +16,21 @@ class TextConstants {
   static const String resendOtp = 'Resend OTP';
 
   // OTP Messages
-  static const String enterCompleteOtp =
-      "Please enter complete 6-digit OTP";
+  static const String enterCompleteOtp = "Please enter complete 6-digit OTP";
 
-  static const String otpVerifiedSuccess =
-      "Phone Verified Successfully!";
+  static const String otpVerifiedSuccess = "Phone Verified Successfully!";
 
-  static const String invalidOtp =
-      "Invalid OTP";
+  static const String invalidOtp = "Invalid OTP";
 
-  static const String verificationFailed =
-      "Verification failed";
+  static const String verificationFailed = "Verification failed";
 
-  static const String otpResent =
-      "OTP Resent!";
+  static const String otpResent = "OTP Resent!";
+
+  static const String tooManyOtpAttempts =
+      "Too many OTP requests. Please wait a while before trying again.";
 
   // Phone Number
-  static const String invalidPhoneNumber =
-      "Please enter valid phone number";
+  static const String invalidPhoneNumber = "Please enter valid phone number";
 
   // Titles
   static const String createAccount = "Create Account";

@@ -28,9 +28,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final TextEditingController nameCtrl = TextEditingController();
   final TextEditingController emailCtrl = TextEditingController();
   final TextEditingController phoneCtrl = TextEditingController();
+  final TextEditingController dobCtrl = TextEditingController();
 
-  late String initialName;
-  late String initialEmail;
+  String initialName = '';
+  String initialEmail = '';
+  String initialDob = '';
+  String initialGender = '';
+  String selectedGender = '';
 
   File? selectedImage;
   String? profileImageUrl;
@@ -44,6 +48,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   void initState() {
     super.initState();
     fetchProfile();
+  }
+
+  @override
+  void dispose() {
+    nameCtrl.dispose();
+    emailCtrl.dispose();
+    phoneCtrl.dispose();
+    dobCtrl.dispose();
+    super.dispose();
   }
 
   /// ================= FETCH PROFILE =================
@@ -63,13 +76,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         nameCtrl.text = profile["ownerName"] ?? "";
         emailCtrl.text = profile["email"] ?? "";
         phoneCtrl.text = profile["phone"] ?? "";
+        dobCtrl.text = _formatDate(profile["dob"]);
+        selectedGender = _displayGender(profile["gender"]);
         profileImageUrl = profile["profilePic"];
+        selectedImage = null;
 
-        verificationStatus = profile["verificationStatus"] ?? "PENDING";
+        verificationStatus = profile["verificationStatus"] ?? "NOT_SUBMITTED";
         isActive = profile["isActive"] ?? false;
 
         initialName = nameCtrl.text;
         initialEmail = emailCtrl.text;
+        initialDob = dobCtrl.text;
+        initialGender = selectedGender;
       }
     } finally {
       setState(() => isLoading = false);
@@ -154,6 +172,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         request.fields["email"] = emailCtrl.text.trim();
       }
 
+      if (dobCtrl.text.trim() != initialDob && dobCtrl.text.trim().isNotEmpty) {
+        request.fields["dob"] = _toApiDate(dobCtrl.text.trim());
+      }
+
+      if (selectedGender != initialGender && selectedGender.isNotEmpty) {
+        request.fields["gender"] = selectedGender.toUpperCase();
+      }
+
       /// Handle Image Upload
       if (selectedImage != null) {
         File file = selectedImage!;
@@ -180,11 +206,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           }
         }
 
-        // Final size check
-        if (fileSize > 5 * 1024 * 1024) {
+        // Backend rejects restaurant profile images above 2 MB.
+        if (fileSize > 2 * 1024 * 1024) {
           Get.snackbar(
             "Image Too Large 🚫",
-            "Compressed image is still >5 MB. Please choose a smaller image.",
+            "Compressed image is still above 2 MB. Please choose a smaller image.",
             snackPosition: SnackPosition.TOP,
           );
           return;
@@ -224,16 +250,23 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
           initialName = nameCtrl.text.trim();
           initialEmail = emailCtrl.text.trim();
+          initialDob = dobCtrl.text.trim();
+          initialGender = selectedGender;
 
           final profilePic = data["profile"]["profilePic"];
+          profileImageUrl = profilePic;
+          selectedImage = null;
           print("Updated Profile Pic URL: $profilePic");
         } else {
           Get.snackbar("Error", data["message"] ?? "Update failed");
         }
       } else {
+        final responseBody = response.body.trim();
         Get.snackbar(
           "Upload Failed",
-          "Image is too large for the server or server returned an error.",
+          responseBody.isNotEmpty
+              ? responseBody
+              : "Image is too large for the server or server returned an error.",
           snackPosition: SnackPosition.TOP,
         );
       }
@@ -246,6 +279,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   void _showEditProfilePopup() {
     final tempName = TextEditingController(text: nameCtrl.text);
     final tempEmail = TextEditingController(text: emailCtrl.text);
+    final tempDob = TextEditingController(text: dobCtrl.text);
+    String tempGender = selectedGender;
 
     ImageProvider? imageProvider;
     if (selectedImage != null) {
@@ -379,6 +414,85 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 keyboard: TextInputType.emailAddress,
               ),
 
+              const SizedBox(height: 18),
+
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  "Date of Birth",
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey.shade700,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 6),
+              TextField(
+                controller: tempDob,
+                readOnly: true,
+                onTap: () async {
+                  final pickedDate = await _pickDate(
+                    initialDate: _parseDisplayDate(tempDob.text),
+                  );
+                  if (pickedDate == null) {
+                    return;
+                  }
+                  tempDob.text = _formatDate(pickedDate.toIso8601String());
+                },
+                decoration: InputDecoration(
+                  hintText: "DD/MM/YYYY",
+                  filled: true,
+                  fillColor: const Color(0xFFF7F9FC),
+                  suffixIcon: const Icon(Icons.calendar_today_outlined),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 18),
+
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  "Gender",
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey.shade700,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 6),
+              StatefulBuilder(
+                builder: (context, setModalState) {
+                  return DropdownButtonFormField<String>(
+                    value: tempGender.isEmpty ? null : tempGender,
+                    items: const [
+                      DropdownMenuItem(value: "Male", child: Text("Male")),
+                      DropdownMenuItem(value: "Female", child: Text("Female")),
+                      DropdownMenuItem(value: "Other", child: Text("Other")),
+                    ],
+                    onChanged: (value) {
+                      setModalState(() {
+                        tempGender = value ?? '';
+                      });
+                    },
+                    decoration: InputDecoration(
+                      hintText: "Select gender",
+                      filled: true,
+                      fillColor: const Color(0xFFF7F9FC),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  );
+                },
+              ),
+
               const SizedBox(height: 30),
 
               /// SAVE BUTTON (REAL CTA)
@@ -394,14 +508,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     elevation: 6,
                   ),
                   onPressed: () {
-                    if (tempName.text.trim().isEmpty ||
-                        tempEmail.text.trim().isEmpty) {
-                      Get.snackbar("Error", "All fields are required");
+                    if (tempName.text.trim().isEmpty) {
+                      Get.snackbar("Error", "Name is required");
                       return;
                     }
 
                     if (tempName.text.trim() == initialName &&
                         tempEmail.text.trim() == initialEmail &&
+                        tempDob.text.trim() == initialDob &&
+                        tempGender == initialGender &&
                         selectedImage == null) {
                       Get.snackbar("No Changes", "Nothing to update");
                       return;
@@ -409,6 +524,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
                     nameCtrl.text = tempName.text.trim();
                     emailCtrl.text = tempEmail.text.trim();
+                    dobCtrl.text = tempDob.text.trim();
+                    selectedGender = tempGender;
 
                     Get.back();
                     updateProfile();
@@ -463,6 +580,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               const SizedBox(height: 24),
               _statusCard(),
               const SizedBox(height: 20),
+              _infoTile(Icons.person_outline, "Name", _fallbackValue(nameCtrl.text)),
+              _infoTile(Icons.cake_outlined, "DOB", _fallbackValue(dobCtrl.text)),
+              _infoTile(
+                Icons.wc_outlined,
+                "Gender",
+                _fallbackValue(selectedGender),
+              ),
               _infoTile(Icons.phone, "Phone", phoneCtrl.text),
               _infoTile(Icons.email, "Email", emailCtrl.text),
               const SizedBox(height: 20),
@@ -489,10 +613,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           alignment: Alignment.bottomRight,
           children: [
             InkWell(
-              onTap: () {
-                showSimpleDialog(context, profileImageUrl!);
-                print("Hi ${nameCtrl.text}");
-              },
+              onTap: imageProvider == null
+                  ? null
+                  : () {
+                      showSimpleDialog(context, profileImageUrl!);
+                      print("Hi ${nameCtrl.text}");
+                    },
               child: CircleAvatar(
                 radius: 60,
                 backgroundColor: Colors.grey.shade300,
@@ -533,7 +659,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         const SizedBox(height: 12),
 
         Text(
-          nameCtrl.text,
+          _fallbackValue(nameCtrl.text),
           style: const TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w600,
@@ -541,7 +667,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         ),
 
         Text(
-          emailCtrl.text,
+          _fallbackValue(emailCtrl.text),
           style: TextStyle(color: Colors.grey.shade600),
         ),
       ],
@@ -560,6 +686,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       case "REJECTED":
         color = Colors.red;
         icon = Icons.cancel;
+        break;
+      case "NOT_SUBMITTED":
+        color = Colors.blueGrey;
+        icon = Icons.assignment_late_outlined;
         break;
       default:
         color = Colors.orange;
@@ -637,6 +767,84 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       leading: Icon(icon, color: ColorConstants.success),
       title: Text(title),
       subtitle: Text(value),
+    );
+  }
+
+  String _fallbackValue(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Not added yet';
+    }
+    return value.trim();
+  }
+
+  String _formatDate(dynamic value) {
+    if (value == null || value.toString().trim().isEmpty) {
+      return '';
+    }
+
+    final parsed = DateTime.tryParse(value.toString());
+    if (parsed == null) {
+      return '';
+    }
+
+    final day = parsed.day.toString().padLeft(2, '0');
+    final month = parsed.month.toString().padLeft(2, '0');
+    final year = parsed.year.toString();
+    return '$day/$month/$year';
+  }
+
+  String _toApiDate(String displayDate) {
+    final parts = displayDate.split('/');
+    if (parts.length != 3) {
+      return displayDate;
+    }
+    final day = parts[0].padLeft(2, '0');
+    final month = parts[1].padLeft(2, '0');
+    final year = parts[2];
+    return '$year-$month-$day';
+  }
+
+  String _displayGender(dynamic value) {
+    final raw = value?.toString().trim().toUpperCase() ?? '';
+    switch (raw) {
+      case 'MALE':
+        return 'Male';
+      case 'FEMALE':
+        return 'Female';
+      case 'OTHER':
+        return 'Other';
+      default:
+        return '';
+    }
+  }
+
+  DateTime? _parseDisplayDate(String value) {
+    if (value.trim().isEmpty) {
+      return null;
+    }
+
+    final parts = value.split('/');
+    if (parts.length != 3) {
+      return null;
+    }
+
+    final day = int.tryParse(parts[0]);
+    final month = int.tryParse(parts[1]);
+    final year = int.tryParse(parts[2]);
+    if (day == null || month == null || year == null) {
+      return null;
+    }
+
+    return DateTime(year, month, day);
+  }
+
+  Future<DateTime?> _pickDate({DateTime? initialDate}) {
+    final now = DateTime.now();
+    return showDatePicker(
+      context: context,
+      initialDate: initialDate ?? DateTime(now.year - 18, now.month, now.day),
+      firstDate: DateTime(1900),
+      lastDate: now,
     );
   }
 

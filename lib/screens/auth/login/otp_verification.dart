@@ -9,16 +9,17 @@ import '../../widgets/OTP_field.dart';
 class OTPVerificationScreen extends StatefulWidget {
   final String verificationId;
   final String phoneNumber;
+  final bool returnResultOnSuccess;
 
   const OTPVerificationScreen({
     super.key,
     required this.verificationId,
     required this.phoneNumber,
+    this.returnResultOnSuccess = false,
   });
 
   @override
-  State<OTPVerificationScreen> createState() =>
-      _OTPVerificationScreenState();
+  State<OTPVerificationScreen> createState() => _OTPVerificationScreenState();
 }
 
 class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
@@ -27,13 +28,12 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
   static const int otpLength = 6;
 
   final List<TextEditingController> _otpControllers =
-  List.generate(otpLength, (_) => TextEditingController());
+      List.generate(otpLength, (_) => TextEditingController());
 
   final List<FocusNode> _focusNodes =
-  List.generate(otpLength, (_) => FocusNode());
+      List.generate(otpLength, (_) => FocusNode());
 
-  String get _otpCode =>
-      _otpControllers.map((c) => c.text).join();
+  String get _otpCode => _otpControllers.map((c) => c.text).join();
 
   void _verifyOTP() {
     if (_otpCode.length < otpLength) return;
@@ -41,10 +41,15 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
     authController.verifyOTP(
       otp: _otpCode,
       verificationId: widget.verificationId,
+      returnResultOnSuccess: widget.returnResultOnSuccess,
     );
   }
 
   void _resendOTP() {
+    if (!authController.canResendOtp) {
+      return;
+    }
+
     authController.resendOTP(widget.phoneNumber);
     for (final c in _otpControllers) {
       c.clear();
@@ -95,7 +100,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
 
             const SizedBox(height: 8),
 
-             Text(
+            Text(
               'An OTP has been sent to your contact number ${widget.phoneNumber}',
               // 'An OTP has been sent to your contact number is +91 7765044459',
               textAlign: TextAlign.center,
@@ -114,12 +119,9 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
                 return OTPInput(
                   controller: _otpControllers[index],
                   focusNode: _focusNodes[index],
-                  prevFocus:
-                  index > 0 ? _focusNodes[index - 1] : null,
+                  prevFocus: index > 0 ? _focusNodes[index - 1] : null,
                   nextFocus:
-                  index < otpLength - 1
-                      ? _focusNodes[index + 1]
-                      : null,
+                      index < otpLength - 1 ? _focusNodes[index + 1] : null,
                 );
               }),
             ),
@@ -128,49 +130,48 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
 
             /// SUBMIT BUTTON
             Obx(() => SizedBox(
-              width: double.infinity,
-              height: 56,
-              child: ElevatedButton(
-                onPressed: authController.isVerifying.value
-                    ? null
-                    : _verifyOTP,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: ColorConstants.success,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(30),
+                  width: double.infinity,
+                  height: 56,
+                  child: ElevatedButton(
+                    onPressed:
+                        authController.isVerifying.value ? null : _verifyOTP,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: ColorConstants.success,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                    ),
+                    child: authController.isVerifying.value
+                        ? const CircularProgressIndicator(
+                            color: Colors.white,
+                          )
+                        : const Text(
+                            'Submit',
+                            style: TextStyle(
+                              fontSize: 17,
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                   ),
-                ),
-                child: authController.isVerifying.value
-                    ? const CircularProgressIndicator(
-                  color: Colors.white,
-                )
-                    : const Text(
-                  'Submit',
-                  style: TextStyle(
-                    fontSize: 17,
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            )),
+                )),
 
             const SizedBox(height: 18),
 
             /// RESEND OTP
             Obx(() => TextButton(
-              onPressed: authController.isResending.value
-                  ? null
-                  : _resendOTP,
-              child: Text(
-                'Resend OTP',
-                style: TextStyle(
-                  color: ColorConstants.orangeRed,
-                  fontSize: 15,
-                  decoration: TextDecoration.underline,
-                ),
-              ),
-            )),
+                  onPressed: authController.canResendOtp ? _resendOTP : null,
+                  child: Text(
+                    authController.resendCooldownSeconds.value > 0
+                        ? 'Resend OTP (${authController.resendCooldownSeconds.value}s)'
+                        : 'Resend OTP',
+                    style: TextStyle(
+                      color: ColorConstants.orangeRed,
+                      fontSize: 15,
+                      decoration: TextDecoration.underline,
+                    ),
+                  ),
+                )),
           ],
         ),
       ),

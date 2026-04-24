@@ -52,7 +52,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyAyghZg2VLDn5XivmB8cztaFKek9qz1gmY',
-    appId: '1:255529326168:android:4ef420bab3f36f0b2d1c2d',
+    appId: '1:255529326168:android:001cf3524501ab1b2d1c2d',
     messagingSenderId: '255529326168',
     projectId: 'hangzo-app-3ea24',
     storageBucket: 'hangzo-app-3ea24.firebasestorage.app',
@@ -64,7 +64,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '255529326168',
     projectId: 'hangzo-app-3ea24',
     storageBucket: 'hangzo-app-3ea24.firebasestorage.app',
-    iosBundleId: 'com.mobilemeals.hunzo',
+    iosBundleId: 'com.mobilemeals.hungzoapp',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
@@ -85,5 +85,4 @@ class DefaultFirebaseOptions {
     storageBucket: 'hangzo-app-3ea24.firebasestorage.app',
     measurementId: 'G-GBJ54NQLMV',
   );
-
 }

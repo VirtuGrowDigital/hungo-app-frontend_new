@@ -5,7 +5,6 @@ import '../../bindings/home_binding.dart';
 import '../../controllers/auth_controller.dart';
 import '../../utils/ColorConstants.dart';
 import '../../utils/ImageConstant.dart';
-import '../auth/login/login_screen.dart';
 import '../home_view.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -91,20 +90,24 @@ class _SplashScreenState extends State<SplashScreen>
     _logoZoomController.forward();
     await Future.delayed(const Duration(milliseconds: 450));
 
-    _navigateNext();
+    if (!mounted) {
+      return;
+    }
+
+    await _navigateNext();
   }
 
-  void _navigateNext() {
-    final isLoggedIn = _authController.isUserLoggedIn();
+  Future<void> _navigateNext() async {
+    await _authController.refreshSessionState();
 
-    // if (isLoggedIn) {
-      Get.offAll(
-            () => const HomeView(),
-        binding: HomeBinding(),
-      );
-    // } else {
-    //   Get.offAll(() => const LoginScreen());
-    // }
+    if (!mounted) {
+      return;
+    }
+
+    Get.offAll(
+      () => const HomeView(),
+      binding: HomeBinding(),
+    );
   }
 
   @override
@@ -140,7 +143,6 @@ class _SplashScreenState extends State<SplashScreen>
                 ),
               ),
             ),
-
             Center(
               child: ScaleTransition(
                 scale: _logoZoomAnimation,
@@ -207,8 +209,4 @@ class _SplashScreenState extends State<SplashScreen>
       ),
     );
   }
-
-}
-void gerhjfhjhhhjvvdbvfvdsbffggr(){
-  String fvbfkffg="raushan kumar singh";
 }

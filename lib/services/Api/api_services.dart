@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get_storage/get_storage.dart';
 import '../../constants/constants.dart';
@@ -44,10 +45,7 @@ class ApiService implements ApiRepository {
 
   ApiService({required this.dio});
 
-
   Future<void> firebaseLogin(String firebaseToken) async {
-    print("firebaseLogin");
-
     final url = Uri.parse('${ApiConstants.baseURL}auth/firebase-login');
 
     final response = await http.post(
@@ -67,21 +65,25 @@ class ApiService implements ApiRepository {
       final accessToken = data['accessToken'];
       final refreshToken = data['refreshToken'];
 
+      if (accessToken == null || refreshToken == null) {
+        throw Exception('Backend login succeeded without auth tokens.');
+      }
+
       // ✅ Store securely
       await secureStorage.write(
-        key: 'accessToken',
+        key: Constants.accessToken,
         value: accessToken,
       );
 
       await secureStorage.write(
-        key: 'refreshToken',
+        key: Constants.refreshToken,
         value: refreshToken,
       );
 
-      print('Login success');
+      debugPrint('Backend login succeeded.');
     } else {
-      print('Login failed: ${response.statusCode}');
-      print(response.body);
+      debugPrint('Backend login failed: ${response.statusCode}');
+      throw Exception('Backend login failed: ${response.statusCode}');
     }
   }
 
@@ -97,6 +99,7 @@ class ApiService implements ApiRepository {
     }
   }
 
+  @override
   Future<LoginModel> login(Map<String, String> request) async {
     try {
       final response = await dio.post(ApiConstants.userLogin, data: request);
@@ -125,16 +128,16 @@ class ApiService implements ApiRepository {
   }
 
   Future<String?> getAccessToken() async {
-    return await secureStorage.read(key: 'accessToken');
+    return await secureStorage.read(key: Constants.accessToken);
   }
 
   Future<String?> getRefreshToken() async {
-    return await secureStorage.read(key: 'refreshToken');
+    return await secureStorage.read(key: Constants.refreshToken);
   }
 
   Future<RegisterModel> firebaseRegister(
-      Map<String, dynamic> request,
-      ) async {
+    Map<String, dynamic> request,
+  ) async {
     try {
       // ✅ Get access token from secure storage
       final accessToken = await getAccessToken();
@@ -168,9 +171,7 @@ class ApiService implements ApiRepository {
     } on DioException catch (e) {
       return RegisterModel(
         status: false,
-        message: e.response?.data['message'] ??
-            e.message ??
-            'Server error',
+        message: e.response?.data['message'] ?? e.message ?? 'Server error',
       );
     } catch (e) {
       return RegisterModel(
@@ -180,15 +181,12 @@ class ApiService implements ApiRepository {
     }
   }
 
-
-
-
   @override
   Future<RegisterModel> register(Map<String, String> request) async {
     try {
       final response = await dio.post(ApiConstants.userRegister, data: request);
       if (response.data != null && response.data is Map<String, dynamic>) {
-        print(" OTP Screen Submit: ${response.data}");
+        debugPrint('Registration response received.');
         bool status = response.data['status'] ?? false;
 
         if (status) {
@@ -637,7 +635,7 @@ class ApiService implements ApiRepository {
         throw Exception('Token is missing in the request map.');
       }
 
-      final response = await dio.post(ApiConstants.logOut, data: request);
+      await dio.post(ApiConstants.logOut, data: request);
     } catch (e) {
       Message_Utils.displayToast("Logout Error:${e.toString()}");
     }
@@ -1242,7 +1240,6 @@ class ApiService implements ApiRepository {
 
   @override
   Future<FetchUserModel> fetchUserData() async {
-
     try {
       String? token = await secureStorage.read(key: Constants.accessToken);
       if (token == null || token.isEmpty) {

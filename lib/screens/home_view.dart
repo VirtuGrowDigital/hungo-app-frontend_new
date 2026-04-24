@@ -4,13 +4,11 @@ import 'package:get/get.dart';
 import 'package:hungzo_app/screens/widgets/banner_card.dart';
 import 'package:hungzo_app/screens/widgets/category_card.dart';
 import 'package:hungzo_app/screens/widgets/filter_bar.dart';
-import 'package:hungzo_app/screens/widgets/location_bar.dart';
 import 'package:hungzo_app/screens/widgets/product_card.dart';
 import 'package:hungzo_app/screens/widgets/search_bar.dart';
 import 'package:shimmer/shimmer.dart';
 
 import '../controllers/home_controller.dart';
-import '../services/firbase/permission_service.dart';
 import '../utils/ColorConstants.dart';
 
 class HomeView extends GetView<HomeController> {
@@ -31,7 +29,7 @@ class HomeView extends GetView<HomeController> {
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       body: Obx(() => controller.screens[controller.bottomIndex.value]),
       bottomNavigationBar: Obx(
-            () => AnimatedBottomNavigationBar(
+        () => AnimatedBottomNavigationBar(
           icons: controller.iconList,
           activeIndex: controller.bottomIndex.value,
           gapLocation: GapLocation.none,
@@ -47,8 +45,6 @@ class HomeView extends GetView<HomeController> {
   }
 }
 
-
-
 class HomeScreen extends GetView<HomeController> {
   const HomeScreen({super.key});
 
@@ -62,7 +58,6 @@ class HomeScreen extends GetView<HomeController> {
           ),
           child: CustomScrollView(
             slivers: [
-
               /// 🔥 FIXED HEADER
               SliverPersistentHeader(
                 pinned: true,
@@ -71,24 +66,72 @@ class HomeScreen extends GetView<HomeController> {
 
               /// 🔥 BODY CONTENT
               SliverPadding(
-                padding: const EdgeInsets.all(10),
+                padding: const EdgeInsets.fromLTRB(14, 12, 14, 18),
                 sliver: SliverList(
                   delegate: SliverChildListDelegate([
-
                     const BannerCard(),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 18),
 
-                    const Text(
-                      "Category",
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
+                    Obx(() {
+                      if (controller.isSearching) {
+                        return _sectionCard(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Search Results',
+                                style: TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFF17392D),
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                'Showing results for "${controller.searchQuery.value.trim()}"',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey.shade700,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                '${controller.products.length} items found',
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: ColorConstants.primaryDark,
+                                ),
+                              ),
+                              if (controller.searchError.value.isNotEmpty) ...[
+                                const SizedBox(height: 8),
+                                Text(
+                                  controller.searchError.value,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    color: Colors.redAccent,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        );
+                      }
+
+                      return const _SectionHeading(
+                        title: "Shop by category",
+                        subtitle:
+                            "Browse curated collections and discover products faster.",
+                      );
+                    }),
+                    const SizedBox(height: 14),
 
                     /// ---------- CATEGORY ----------
                     Obx(() {
+                      if (controller.isSearching) {
+                        return const SizedBox.shrink();
+                      }
+
                       if (controller.isLoading.value &&
                           controller.products.isEmpty) {
                         return _categoryShimmer();
@@ -96,68 +139,118 @@ class HomeScreen extends GetView<HomeController> {
 
                       final cats = controller.categories;
 
-                      return SizedBox(
-                        height: 140,
-                        child: ListView.separated(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: cats.length,
-                          separatorBuilder: (_, __) =>
-                          const SizedBox(width: 12),
-                          itemBuilder: (_, index) {
-                            final category = cats[index];
+                      return _sectionCard(
+                        padding: const EdgeInsets.fromLTRB(14, 16, 14, 16),
+                        child: SizedBox(
+                          height: 140,
+                          child: ListView.separated(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: cats.length,
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(width: 12),
+                            itemBuilder: (_, index) {
+                              final category = cats[index];
 
-                            String imageUrl = '';
-                            final products =
-                            category['products'] as List<dynamic>?;
+                              String imageUrl = '';
+                              final products =
+                                  category['products'] as List<dynamic>?;
 
-                            if (products != null && products.isNotEmpty) {
-                              final firstProduct =
-                              products.first as Map<String, dynamic>;
-                              final images =
-                              firstProduct['images'] as List<dynamic>?;
+                              if (products != null && products.isNotEmpty) {
+                                final firstProduct =
+                                    products.first as Map<String, dynamic>;
+                                final images =
+                                    firstProduct['images'] as List<dynamic>?;
 
-                              if (images != null && images.isNotEmpty) {
-                                imageUrl = images.first.toString();
+                                if (images != null && images.isNotEmpty) {
+                                  imageUrl = images.first.toString();
+                                }
                               }
-                            }
 
-                            return GestureDetector(
-                              onTap: () => controller.changeCategory(
-                                category["category"],
-                              ),
-                              child: CategoryCard(
-                                title: category["category"] ?? 'Unknown',
-                                subtitle:
-                                "${products?.length ?? 0} items",
-                                image: imageUrl.isNotEmpty
-                                    ? imageUrl
-                                    : 'assets/permission/location.png',
-                              ),
-                            );
-                          },
+                              return GestureDetector(
+                                onTap: () => controller.changeCategory(
+                                  category["category"],
+                                ),
+                                child: CategoryCard(
+                                  title: category["category"] ?? 'Unknown',
+                                  subtitle: "${products?.length ?? 0} items",
+                                  image: imageUrl.isNotEmpty
+                                      ? imageUrl
+                                      : 'assets/permission/location.png',
+                                ),
+                              );
+                            },
+                          ),
                         ),
                       );
                     }),
 
-                    const SizedBox(height: 15),
-                     FilterBar(),
-                    const SizedBox(height: 15),
+                    const SizedBox(height: 18),
+                    Obx(() => controller.isSearching
+                        ? const SizedBox.shrink()
+                        : const _SectionHeading(
+                            title: "Refine your picks",
+                            subtitle:
+                                "Sort and filter products to find the best match.",
+                          )),
+                    const SizedBox(height: 12),
+                    Obx(() => controller.isSearching
+                        ? const SizedBox.shrink()
+                        : _sectionCard(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 12,
+                            ),
+                            child: SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: FilterBar(),
+                            ),
+                          )),
+                    const SizedBox(height: 18),
+                    Obx(
+                      () => _SectionHeading(
+                        title: controller.isSearching
+                            ? "Matching products"
+                            : "Popular products",
+                        subtitle: controller.isSearching
+                            ? "A refined list based on your current search."
+                            : "${controller.products.length} products ready to order",
+                      ),
+                    ),
+                    const SizedBox(height: 14),
 
                     /// ---------- PRODUCTS ----------
                     Obx(() {
-                      if (controller.isLoading.value &&
+                      if ((controller.isLoading.value ||
+                              controller.isSearchLoading.value) &&
                           controller.products.isEmpty) {
                         return _productGridShimmer();
                       }
                       final products = controller.products;
 
                       if (products.isEmpty) {
-                        return const Center(
-                          child: Text("No products available"),
+                        return _sectionCard(
+                          child: Center(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 24),
+                              child: Text(
+                                controller.isSearching
+                                    ? "No matching products found"
+                                    : "No products available",
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.grey.shade700,
+                                ),
+                              ),
+                            ),
+                          ),
                         );
                       }
 
-                      return ProductGrid(products: products);
+                      return _sectionCard(
+                        padding: const EdgeInsets.fromLTRB(12, 16, 12, 8),
+                        child: ProductGrid(products: products),
+                      );
                     }),
                   ]),
                 ),
@@ -168,48 +261,29 @@ class HomeScreen extends GetView<HomeController> {
       ),
     );
   }
+
   Widget _productGridShimmer() {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisSpacing: 16,
-        crossAxisSpacing: 16,
-        childAspectRatio: 0.65,
-      ),
-      itemCount: 6,
-      itemBuilder: (_, __) {
-        return Shimmer.fromColors(
-          baseColor: Colors.grey.shade300,
-          highlightColor: Colors.grey.shade200,
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-            ),
-          ),
-        );
-      },
-    );
-  }
-  Widget _categoryShimmer() {
-    return SizedBox(
-      height: 140,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: 5,
-        separatorBuilder: (_, __) => const SizedBox(width: 12),
+    return _sectionCard(
+      padding: const EdgeInsets.fromLTRB(12, 16, 12, 8),
+      child: GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          mainAxisSpacing: 16,
+          crossAxisSpacing: 16,
+          childAspectRatio: 0.66,
+        ),
+        itemCount: 6,
         itemBuilder: (_, __) {
           return Shimmer.fromColors(
             baseColor: Colors.grey.shade300,
             highlightColor: Colors.grey.shade200,
             child: Container(
-              width: 130,
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(20),
               ),
             ),
           );
@@ -218,55 +292,119 @@ class HomeScreen extends GetView<HomeController> {
     );
   }
 
+  Widget _categoryShimmer() {
+    return _sectionCard(
+      padding: const EdgeInsets.fromLTRB(14, 16, 14, 16),
+      child: SizedBox(
+        height: 140,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          itemCount: 5,
+          separatorBuilder: (_, __) => const SizedBox(width: 12),
+          itemBuilder: (_, __) {
+            return Shimmer.fromColors(
+              baseColor: Colors.grey.shade300,
+              highlightColor: Colors.grey.shade200,
+              child: Container(
+                width: 130,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
 
+  Widget _sectionCard({
+    required Widget child,
+    EdgeInsetsGeometry padding = const EdgeInsets.all(16),
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: padding,
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.94),
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: const Color(0xFFE2ECE6)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF123C2D).withValues(alpha: 0.05),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+}
+
+class _SectionHeading extends StatelessWidget {
+  final String title;
+  final String subtitle;
+
+  const _SectionHeading({
+    required this.title,
+    required this.subtitle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w800,
+            color: Color(0xFF17392D),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          subtitle,
+          style: TextStyle(
+            fontSize: 14,
+            color: Colors.grey.shade700,
+            height: 1.35,
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class HomeHeaderDelegate extends SliverPersistentHeaderDelegate {
   @override
-  double get minExtent => 70; // Height for SearchDishBar
+  double get minExtent => 84;
 
   @override
-  double get maxExtent => 130; // LocationBar + SearchDishBar
+  double get maxExtent => 84;
 
   @override
   Widget build(
-      BuildContext context,
-      double shrinkOffset,
-      bool overlapsContent,
-      ) {
-    final double progress =
-    (shrinkOffset / (maxExtent - minExtent))
-        .clamp(0.0, 1.0);
-
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: ColorConstants.cardBackground, // 🔥 PINK APPBAR
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Color(0xFFCFE3D7),
+            Color(0xFFEAF5EF),
+          ],
+        ),
       ),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-
-          /// 🔥 LOCATION BAR (hide on scroll)
-          Positioned(
-            top: 12 - (progress * 40),
-            left: 0,
-            right: 0,
-            child: Opacity(
-              opacity: 1 - progress,
-              child: LocationBar(),
-            ),
-          ),
-
-          /// 🔥 SEARCH BAR (always visible)
-          const Positioned(
-            bottom: 12,
-            left: 0,
-            right: 0,
-            child: SearchDishBar(),
-          ),
-        ],
-      ),
+      child: const SearchDishBar(),
     );
   }
 
