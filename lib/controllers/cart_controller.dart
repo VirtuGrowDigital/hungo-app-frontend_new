@@ -40,6 +40,9 @@ class CartController extends GetxController {
 
   bool get isSelfPickup => fulfillmentType.value == selfPickupType;
 
+  int get totalCartItemCount =>
+      cartItems.fold(0, (sum, item) => sum + item.quantity);
+
   // ================= FETCH CART =================
 
   Future<void> fetchCart({String? type}) async {

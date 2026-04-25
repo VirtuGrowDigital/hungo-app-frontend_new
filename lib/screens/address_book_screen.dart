@@ -229,31 +229,86 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
     if (_addresses.isEmpty) {
       return ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.fromLTRB(24, 36, 24, 24),
         children: [
-          const SizedBox(height: 80),
-          Icon(
-            Icons.location_city_outlined,
-            size: 64,
-            color: Colors.grey.shade400,
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            "No saved addresses yet",
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [
+                  Color(0xFFEAF7F3),
+                  Colors.white,
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(
+                color: ColorConstants.success.withValues(alpha: 0.12),
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            "Add your delivery addresses here so checkout is faster next time.",
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey.shade600,
-              height: 1.5,
+            child: Column(
+              children: [
+                Container(
+                  width: 82,
+                  height: 82,
+                  decoration: BoxDecoration(
+                    color: ColorConstants.success.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.add_location_alt_outlined,
+                    size: 40,
+                    color: ColorConstants.success,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  "No saved addresses yet",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF17392D),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  "Save your home, office, or other delivery spots here so checkout becomes much faster next time.",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey.shade700,
+                    height: 1.6,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: _openAddressForm,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: ColorConstants.success,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    icon: const Icon(Icons.add_location_alt_outlined),
+                    label: const Text("Add Your First Address"),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  "Tip: Choose a default address to make future orders even quicker.",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -350,7 +405,8 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
                     color: isDefault ? ColorConstants.success : Colors.blueGrey,
                   ),
                   _chip(
-                    label: isServiceable ? "Serviceable" : "Outside delivery area",
+                    label:
+                        isServiceable ? "Serviceable" : "Outside delivery area",
                     color: isServiceable ? Colors.green : Colors.red,
                   ),
                 ],
@@ -366,7 +422,9 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
                     address.city,
                     address.state,
                     address.pinCode,
-                  ].where((value) => (value ?? "").trim().isNotEmpty).join(", "),
+                  ]
+                      .where((value) => (value ?? "").trim().isNotEmpty)
+                      .join(", "),
                 ].where((value) => value.trim().isNotEmpty).join("\n"),
                 style: TextStyle(
                   fontSize: 14,
@@ -379,7 +437,9 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
                 children: [
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: isBusy ? null : () => _openAddressForm(address: address),
+                      onPressed: isBusy
+                          ? null
+                          : () => _openAddressForm(address: address),
                       icon: const Icon(Icons.edit_outlined, size: 18),
                       label: const Text("Edit"),
                     ),
@@ -689,9 +749,9 @@ class _AddressFormSheetState extends State<_AddressFormSheet> {
     try {
       final message = _isEditing
           ? (await widget.apiService.updateAddress(
-              widget.initialAddress!.sId!,
-              request,
-            ))
+                widget.initialAddress!.sId!,
+                request,
+              ))
                   .message ??
               "Address updated successfully"
           : (await widget.apiService.addAddress(request)).message ??
@@ -739,8 +799,9 @@ class _AddressFormSheetState extends State<_AddressFormSheet> {
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-    final isServiceable = (_distanceInKm ?? (_AddressFormSheet.serviceRadiusKm + 1)) <=
-        _AddressFormSheet.serviceRadiusKm;
+    final isServiceable =
+        (_distanceInKm ?? (_AddressFormSheet.serviceRadiusKm + 1)) <=
+            _AddressFormSheet.serviceRadiusKm;
 
     return Padding(
       padding: EdgeInsets.only(bottom: bottomInset),
@@ -793,7 +854,9 @@ class _AddressFormSheetState extends State<_AddressFormSheet> {
                           icon: Icons.my_location,
                           color: Colors.blue.shade600,
                           loading: _isFetchingLocation,
-                          onTap: _isFetchingLocation ? null : _prefillFromCurrentLocation,
+                          onTap: _isFetchingLocation
+                              ? null
+                              : _prefillFromCurrentLocation,
                         ),
                       ),
                       const SizedBox(width: 10),
@@ -920,10 +983,12 @@ class _AddressFormSheetState extends State<_AddressFormSheet> {
                               height: 22,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2.5,
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                valueColor:
+                                    AlwaysStoppedAnimation<Color>(Colors.white),
                               ),
                             )
-                          : Text(_isEditing ? "Update Address" : "Save Address"),
+                          : Text(
+                              _isEditing ? "Update Address" : "Save Address"),
                     ),
                   ),
                 ],

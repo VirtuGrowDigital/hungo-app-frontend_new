@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:hungzo_app/services/Api/api_constants.dart';
 import 'package:intl/intl.dart';
@@ -10,6 +11,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:open_file/open_file.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:url_launcher/url_launcher.dart';
 import 'my_orders_screen.dart';
 
 class OrderDetailsScreen extends StatefulWidget {
@@ -31,41 +33,22 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen>
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
   late List<AnimationController> _controllers;
-
-  final List<String> statusFlow = [
-    "Pending",
-    "Accepted",
-    "Packed",
-    "Out for Delivery",
-    "Delivered",
-    "Returned",
-    "Refunded",
-  ];
+  late final List<String> statusFlow;
 
   late int currentIndex;
 
-  // ================= RETURN BUTTON CONDITION =================
-
-  bool get _canShowReturn {
-    final order = widget.order;
-    final item = widget.selectedItem;
-
-    if (order.orderStatus == "Cancelled") return false;
-    if (order.orderStatus != "Delivered") return false;
-    if (item.returned || item.refunded) return false;
-
-    final createdDate = DateTime.parse(order.createdAt).toLocal();
-
-    final difference = DateTime.now().difference(createdDate);
-
-    if (difference.inDays > 7) return false;
-
-    return true;
+  bool get _canShowCancel {
+    final status = widget.order.orderStatus;
+    return status != "Cancelled" &&
+        status != "Delivered" &&
+        status != "Picked by Customer";
   }
 
   @override
   void initState() {
     super.initState();
+
+    statusFlow = _buildStatusFlow();
 
     final item = widget.selectedItem;
     String effectiveStatus = widget.order.orderStatus;
@@ -122,13 +105,13 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen>
           style: TextStyle(color: Colors.black, fontSize: 18),
         ),
         actions: [
-          if (_canShowReturn)
+          if (_canShowCancel)
             TextButton(
-              onPressed: _showReturnDialog,
+              onPressed: _showCancelDialog,
               child: const Text(
-                "Return",
+                "Cancel Order",
                 style: TextStyle(
-                  color: Colors.blue,
+                  color: Colors.red,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -142,6 +125,9 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen>
       body: ListView(
         children: [
           _productHeader(),
+          _orderOverviewCard(),
+          if (!widget.order.isDelivery && widget.order.warehouseAssignment != null)
+            _pickupWarehouseCard(),
           if (widget.selectedItem.refunded) _refundCard(),
           const SizedBox(height: 10),
           if (isCancelled) _cancelledCard() else _timelineCard(),
@@ -378,79 +364,59 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen>
     );
   }
 
-  // ================= RETURN API =================
-
-  Future<void> _submitReturnRequest({
-    required String reason,
-    required String description,
-  }) async {
+  Future<void> _cancelOrder() async {
     final token = await _storage.read(key: 'accessToken');
 
     if (token == null) return;
 
-    await http.post(
-      Uri.parse("${ApiConstants.baseURL}returns/request"),
+    final response = await http.patch(
+      Uri.parse("${ApiConstants.baseURL}orders/${widget.order.id}/cancel"),
       headers: {
         "Content-Type": "application/json",
         "Authorization": "Bearer $token",
       },
-      body: jsonEncode({
-        "orderId": widget.order.id,
-        "productId": widget.selectedItem.productId,
-        "quantity": widget.selectedItem.qty,
-        "reason": reason,
-        "description": description,
-        "images": []
-      }),
     );
 
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Return request submitted")),
-    );
+
+    final body =
+        response.body.isEmpty ? null : jsonDecode(response.body) as Map<String, dynamic>;
+    final message =
+        body?["message"]?.toString() ??
+        (response.statusCode == 200
+            ? "Order cancelled successfully"
+            : "Unable to cancel order");
+
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+
+    if (response.statusCode == 200) {
+      if (Get.isRegistered<OrdersController>()) {
+        await Get.find<OrdersController>().fetchOrders();
+      }
+      if (!mounted) return;
+      Navigator.pop(context, true);
+    }
   }
 
-  // ================= RETURN DIALOG =================
-
-  void _showReturnDialog() {
-    final reasonController = TextEditingController();
-    final descriptionController = TextEditingController();
-
+  void _showCancelDialog() {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text("Request Return"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: reasonController,
-              decoration: const InputDecoration(labelText: "Reason"),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: descriptionController,
-              decoration: const InputDecoration(labelText: "Description"),
-            ),
-          ],
+        title: const Text("Cancel Order"),
+        content: const Text(
+          "You can cancel this order only before it is delivered or picked up. Do you want to continue?",
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text("Cancel"),
+            child: const Text("Keep Order"),
           ),
           ElevatedButton(
             onPressed: () {
-              if (reasonController.text.isEmpty) return;
-
               Navigator.pop(context);
-
-              _submitReturnRequest(
-                reason: reasonController.text,
-                description: descriptionController.text,
-              );
+              _cancelOrder();
             },
-            child: const Text("Submit"),
+            child: const Text("Cancel Order"),
           ),
         ],
       ),
@@ -503,17 +469,110 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen>
   Widget _cancelledCard() {
     return Container(
       margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: Colors.red.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(14),
       ),
-      child: const Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.cancel, color: Colors.red),
-          SizedBox(width: 10),
-          Text("Order Cancelled",
-              style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+          const Row(
+            children: [
+              Icon(Icons.cancel, color: Colors.red),
+              SizedBox(width: 10),
+              Text(
+                "Order Cancelled",
+                style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            widget.order.statusDescriptionFor("Cancelled"),
+            style: const TextStyle(color: Colors.redAccent),
+          ),
+          if (widget.order.cancelledAtDate != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              DateFormat('dd MMM yyyy, hh:mm a')
+                  .format(widget.order.cancelledAtDate!),
+              style: const TextStyle(fontSize: 12, color: Colors.black54),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _orderOverviewCard() {
+    final order = widget.order;
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  order.displayStatus,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              _statusPill(order.displayStatus),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            order.statusDescriptionFor(order.displayStatus),
+            style: const TextStyle(
+              color: Colors.black54,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              _infoChip(Icons.payments_outlined, order.paymentStatusLabel),
+              _infoChip(Icons.local_shipping_outlined, order.fulfillmentLabel),
+              _infoChip(
+                Icons.currency_rupee,
+                "₹${order.totalAmount.toStringAsFixed(0)}",
+              ),
+            ],
+          ),
+          if (order.driverStatus == "DRIVER_ACCEPTED" &&
+              order.displayStatus == "Packed") ...[
+            const SizedBox(height: 14),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Text(
+                "Driver assigned. Pickup will begin shortly.",
+                style: TextStyle(
+                  color: Colors.black87,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -541,10 +600,282 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen>
     );
   }
 
+  Widget _pickupWarehouseCard() {
+    final warehouse = widget.order.warehouseAssignment!;
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.store_mall_directory_outlined),
+              SizedBox(width: 8),
+              Text(
+                "Pickup Warehouse",
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            warehouse.name,
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            warehouse.fullAddress,
+            style: const TextStyle(color: Colors.black87, height: 1.4),
+          ),
+          if (warehouse.latitude != null && warehouse.longitude != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              "Coordinates: ${warehouse.latitude}, ${warehouse.longitude}",
+              style: const TextStyle(color: Colors.black54),
+            ),
+          ],
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF5F7FA),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (warehouse.mapLink.isNotEmpty) ...[
+                  Row(
+                    children: [
+                      const Icon(Icons.map_outlined, size: 18),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          warehouse.mapLink,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.blue,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () => _showNavigationOptions(warehouse),
+                        icon: const Icon(Icons.navigation_outlined, size: 18),
+                        label: const Text("Navigate to Warehouse"),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.black,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (warehouse.mapLink.isNotEmpty) ...[
+                      const SizedBox(width: 10),
+                      OutlinedButton.icon(
+                        onPressed: () async {
+                          await Clipboard.setData(
+                            ClipboardData(text: warehouse.mapLink),
+                          );
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("Google Maps link copied"),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.copy, size: 18),
+                        label: const Text("Copy"),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showNavigationOptions(WarehouseAssignment warehouse) async {
+    final googleMapsUri = _buildGoogleMapsUri(warehouse);
+    final appleMapsUri = _buildAppleMapsUri(warehouse);
+
+    if (!mounted) return;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (bottomSheetContext) {
+        final isIOS = Platform.isIOS;
+
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "Open pickup location",
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  warehouse.name,
+                  style: const TextStyle(color: Colors.black54),
+                ),
+                const SizedBox(height: 16),
+                if (isIOS) ...[
+                  _mapOptionTile(
+                    icon: Icons.map_outlined,
+                    title: "Open in Apple Maps",
+                    onTap: () async {
+                      Navigator.pop(bottomSheetContext);
+                      await _launchMapUri(appleMapsUri);
+                    },
+                  ),
+                  _mapOptionTile(
+                    icon: Icons.pin_drop_outlined,
+                    title: "Open in Google Maps",
+                    onTap: () async {
+                      Navigator.pop(bottomSheetContext);
+                      await _launchMapUri(googleMapsUri);
+                    },
+                  ),
+                ] else ...[
+                  _mapOptionTile(
+                    icon: Icons.pin_drop_outlined,
+                    title: "Open in Google Maps",
+                    onTap: () async {
+                      Navigator.pop(bottomSheetContext);
+                      await _launchMapUri(googleMapsUri);
+                    },
+                  ),
+                  _mapOptionTile(
+                    icon: Icons.public,
+                    title: "Open map link",
+                    onTap: () async {
+                      Navigator.pop(bottomSheetContext);
+                      await _launchMapUri(Uri.parse(warehouse.mapLink));
+                    },
+                  ),
+                ],
+                _mapOptionTile(
+                  icon: Icons.copy,
+                  title: "Copy map link",
+                  onTap: () async {
+                    Navigator.pop(bottomSheetContext);
+                    await Clipboard.setData(
+                      ClipboardData(text: warehouse.mapLink),
+                    );
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("Google Maps link copied")),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _mapOptionTile({
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(icon),
+      title: Text(title),
+      onTap: onTap,
+    );
+  }
+
+  Uri _buildGoogleMapsUri(WarehouseAssignment warehouse) {
+    if (warehouse.latitude != null && warehouse.longitude != null) {
+      return Uri.parse(
+        "https://www.google.com/maps/search/?api=1&query=${warehouse.latitude},${warehouse.longitude}",
+      );
+    }
+
+    final query = Uri.encodeComponent(
+      warehouse.fullAddress.isNotEmpty ? warehouse.fullAddress : warehouse.name,
+    );
+    return Uri.parse(
+      "https://www.google.com/maps/search/?api=1&query=$query",
+    );
+  }
+
+  Uri _buildAppleMapsUri(WarehouseAssignment warehouse) {
+    final query = Uri.encodeComponent(
+      warehouse.fullAddress.isNotEmpty ? warehouse.fullAddress : warehouse.name,
+    );
+
+    if (warehouse.latitude != null && warehouse.longitude != null) {
+      return Uri.parse(
+        "http://maps.apple.com/?ll=${warehouse.latitude},${warehouse.longitude}&q=$query",
+      );
+    }
+
+    return Uri.parse("http://maps.apple.com/?q=$query");
+  }
+
+  Future<void> _launchMapUri(Uri uri) async {
+    final launched = await launchUrl(
+      uri,
+      mode: LaunchMode.externalApplication,
+    );
+
+    if (!launched && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Could not open map location")),
+      );
+    }
+  }
+
   Widget _timelineCard() {
     return Container(
-      color: Colors.white,
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -553,8 +884,10 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen>
           const SizedBox(height: 16),
           Column(
             children: List.generate(statusFlow.length, (index) {
-              final isActive = index <= currentIndex;
+              final stepStatus = statusFlow[index];
+              final isActive = currentIndex >= 0 && index <= currentIndex;
               final isLast = index == statusFlow.length - 1;
+              final stepTime = _timelineDate(stepStatus);
 
               return Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -603,23 +936,31 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen>
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            statusFlow[index],
+                            stepStatus,
                             style: TextStyle(
                               fontWeight: FontWeight.w600,
                               color: isActive ? Colors.black : Colors.grey,
                             ),
                           ),
-                          if (isActive) const SizedBox(height: 4),
-                          if (isActive)
+                          const SizedBox(height: 4),
+                          Text(
+                            widget.order.statusDescriptionFor(stepStatus),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: isActive ? Colors.black54 : Colors.grey,
+                              height: 1.35,
+                            ),
+                          ),
+                          if (stepTime != null) ...[
+                            const SizedBox(height: 6),
                             Text(
-                              DateFormat('dd MMM yyyy, hh:mm a').format(
-                                  DateTime.parse(widget.order.createdAt)
-                                      .toLocal()),
+                              DateFormat('dd MMM yyyy, hh:mm a').format(stepTime),
                               style: const TextStyle(
                                 fontSize: 11,
                                 color: Colors.grey,
                               ),
                             ),
+                          ],
                         ],
                       ),
                     ),
@@ -632,6 +973,29 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen>
       ),
     );
   }
+
+  List<String> _buildStatusFlow() {
+    final item = widget.selectedItem;
+    final baseFlow = widget.order.customerStatusFlow;
+
+    if (item.refunded) {
+      return [...baseFlow, "Returned", "Refunded"];
+    }
+
+    if (item.returned) {
+      return [...baseFlow, "Returned"];
+    }
+
+    return baseFlow;
+  }
+
+  DateTime? _timelineDate(String status) {
+    if (status == "Returned" || status == "Refunded") {
+      return widget.order.deliveredAtDate ?? widget.order.updatedAtDate;
+    }
+
+    return widget.order.timelineTimeFor(status);
+  }
 }
 
 Widget _placeholderImage() {
@@ -642,6 +1006,63 @@ Widget _placeholderImage() {
     child: const Icon(
       Icons.image_not_supported,
       color: Colors.grey,
+    ),
+  );
+}
+
+Widget _statusPill(String status) {
+  final (Color background, Color foreground, IconData icon) = switch (status) {
+    "Delivered" => (Colors.green.withValues(alpha: 0.12), Colors.green, Icons.check_circle),
+    "Picked by Customer" => (Colors.teal.withValues(alpha: 0.12), Colors.teal, Icons.storefront),
+    "Out for Delivery" => (Colors.blue.withValues(alpha: 0.12), Colors.blue, Icons.local_shipping),
+    "Packed" => (Colors.orange.withValues(alpha: 0.12), Colors.orange, Icons.inventory),
+    "Accepted" => (Colors.deepPurple.withValues(alpha: 0.12), Colors.deepPurple, Icons.verified),
+    "Cancelled" => (Colors.red.withValues(alpha: 0.12), Colors.red, Icons.cancel),
+    _ => (Colors.grey.withValues(alpha: 0.14), Colors.grey, Icons.access_time),
+  };
+
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    decoration: BoxDecoration(
+      color: background,
+      borderRadius: BorderRadius.circular(24),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 14, color: foreground),
+        const SizedBox(width: 6),
+        Text(
+          status,
+          style: TextStyle(
+            color: foreground,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+Widget _infoChip(IconData icon, String label) {
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    decoration: BoxDecoration(
+      color: const Color(0xFFF5F7FA),
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 16, color: Colors.black54),
+        const SizedBox(width: 8),
+        Text(
+          label,
+          style: const TextStyle(
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
     ),
   );
 }

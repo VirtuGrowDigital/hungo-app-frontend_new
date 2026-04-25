@@ -8,6 +8,8 @@ import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
 
 import '../constants/constants.dart';
+import '../utils/ColorConstants.dart';
+import 'home_view.dart';
 import 'order_details_screen.dart';
 
 /// =====================
@@ -43,17 +45,104 @@ class MyOrdersScreen extends StatelessWidget {
 
         return RefreshIndicator(
           onRefresh: controller.fetchOrders,
-          child: ListView.builder(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(16),
-            itemCount: controller.orders.length,
-            itemBuilder: (_, index) {
-              final order = controller.orders[index];
-              return _orderCard(order);
-            },
-          ),
+          child: controller.orders.isEmpty
+              ? _emptyOrdersState()
+              : ListView.builder(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(16),
+                  itemCount: controller.orders.length,
+                  itemBuilder: (_, index) {
+                    final order = controller.orders[index];
+                    return _orderCard(order);
+                  },
+                ),
         );
       }),
+    );
+  }
+
+  Widget _emptyOrdersState() {
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(24, 36, 24, 24),
+      children: [
+        Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [
+                Color(0xFFEAF7F3),
+                Colors.white,
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(
+              color: ColorConstants.success.withValues(alpha: 0.12),
+            ),
+          ),
+          child: Column(
+            children: [
+              Container(
+                width: 82,
+                height: 82,
+                decoration: BoxDecoration(
+                  color: ColorConstants.success.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.receipt_long_outlined,
+                  size: 40,
+                  color: ColorConstants.success,
+                ),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                "No orders yet",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF17392D),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                "Your past purchases and live order updates will appear here once you place your first order.",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  height: 1.6,
+                  color: Colors.grey.shade700,
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () => Get.offAll(() => const HomeView()),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: ColorConstants.success,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  icon: const Icon(Icons.storefront_outlined),
+                  label: const Text("Start Shopping"),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: controller.fetchOrders,
+                child: const Text("Pull to refresh or tap to retry"),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -87,6 +176,10 @@ class MyOrdersScreen extends StatelessWidget {
         statusColor = Colors.green;
         statusIcon = Icons.check_circle;
         break;
+      case "Picked by Customer":
+        statusColor = Colors.teal;
+        statusIcon = Icons.storefront;
+        break;
       case "Out for Delivery":
         statusColor = Colors.blue;
         statusIcon = Icons.local_shipping;
@@ -94,6 +187,10 @@ class MyOrdersScreen extends StatelessWidget {
       case "Accepted":
         statusColor = Colors.deepPurple;
         statusIcon = Icons.inventory_2;
+        break;
+      case "Packed":
+        statusColor = Colors.orange;
+        statusIcon = Icons.inventory;
         break;
       default:
         statusColor = Colors.grey;
@@ -107,12 +204,12 @@ class MyOrdersScreen extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: statusColor.withOpacity(0.15),
+          color: statusColor.withValues(alpha: 0.15),
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -138,7 +235,7 @@ class MyOrdersScreen extends StatelessWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.08),
+                  color: statusColor.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(30),
                 ),
                 child: Row(
@@ -176,7 +273,7 @@ class MyOrdersScreen extends StatelessWidget {
               },
               child: _orderItem(item, order),
             );
-          }).toList(),
+          }),
         ],
       ),
     );
@@ -369,25 +466,47 @@ class OrderModel {
   final String id;
   final String orderStatus;
   final String paymentStatus;
+  final String driverStatus;
+  final String fulfillmentType;
   final String createdAt;
+  final String? updatedAt;
+  final String? adminAcceptedAt;
+  final String? acceptedAt;
+  final String? packedAt;
+  final String? pickedAt;
+  final String? customerPickedUpAt;
+  final String? cancelledAt;
+  final String? deliveredAt;
   final List<OrderItem> items;
   final double subTotal;
   final double deliveryCharge;
   final double platformFee;
   final double gstAmount;
   final double totalAmount;
+  final WarehouseAssignment? warehouseAssignment;
 
   OrderModel({
     required this.id,
     required this.orderStatus,
     required this.paymentStatus,
+    required this.driverStatus,
+    required this.fulfillmentType,
     required this.createdAt,
+    required this.updatedAt,
+    required this.adminAcceptedAt,
+    required this.acceptedAt,
+    required this.packedAt,
+    required this.pickedAt,
+    required this.customerPickedUpAt,
+    required this.cancelledAt,
+    required this.deliveredAt,
     required this.items,
     required this.subTotal,
     required this.deliveryCharge,
     required this.platformFee,
     required this.gstAmount,
     required this.totalAmount,
+    required this.warehouseAssignment,
   });
 
   /// Derived Status Logic
@@ -401,9 +520,108 @@ class OrderModel {
     return orderStatus;
   }
 
+  bool get isDelivery => fulfillmentType == "DELIVERY";
+
+  String get paymentStatusLabel =>
+      paymentStatus == "paid" ? "Paid" : "Payment Pending";
+
+  String get fulfillmentLabel => isDelivery ? "Home Delivery" : "Self Pickup";
+
+  DateTime? get createdAtDate => _parseDate(createdAt);
+  DateTime? get updatedAtDate => _parseDate(updatedAt);
+  DateTime? get adminAcceptedAtDate => _parseDate(adminAcceptedAt);
+  DateTime? get driverAcceptedAtDate => _parseDate(acceptedAt);
+  DateTime? get packedAtDate => _parseDate(packedAt);
+  DateTime? get pickedAtDate => _parseDate(pickedAt);
+  DateTime? get customerPickedUpAtDate => _parseDate(customerPickedUpAt);
+  DateTime? get cancelledAtDate => _parseDate(cancelledAt);
+  DateTime? get deliveredAtDate => _parseDate(deliveredAt);
+
+  DateTime? timelineTimeFor(String status) {
+    switch (status) {
+      case "Pending":
+        return createdAtDate;
+      case "Accepted":
+        return adminAcceptedAtDate;
+      case "Packed":
+        return packedAtDate;
+      case "Out for Delivery":
+        return pickedAtDate;
+      case "Delivered":
+        return deliveredAtDate;
+      case "Picked by Customer":
+        return customerPickedUpAtDate;
+      case "Cancelled":
+        return cancelledAtDate;
+      default:
+        return null;
+    }
+  }
+
+  String statusDescriptionFor(String status) {
+    switch (status) {
+      case "Pending":
+        return paymentStatus == "paid"
+            ? "Your order is placed and waiting for admin confirmation."
+            : "We are waiting for payment confirmation before processing.";
+      case "Accepted":
+        return "Admin has accepted your order and the team is preparing it.";
+      case "Packed":
+        if (!isDelivery) {
+          return "Your order is packed and ready for pickup from the assigned warehouse.";
+        }
+        if (driverStatus == "DRIVER_ACCEPTED") {
+          return "Your order is packed and a driver has accepted the delivery.";
+        }
+        return "Your order is packed and waiting for a delivery partner.";
+      case "Out for Delivery":
+        return "The driver has picked up your order and is on the way.";
+      case "Delivered":
+        return "The order was delivered successfully.";
+      case "Picked by Customer":
+        return "The order has been picked up successfully from the warehouse.";
+      case "Cancelled":
+        return "This order was cancelled and will not be delivered.";
+      case "Returned":
+        return "Return request recorded for this item.";
+      case "Refunded":
+        return "Refund has been processed for this item.";
+      default:
+        return "We will keep this order updated here.";
+    }
+  }
+
+  List<String> get customerStatusFlow {
+    final baseFlow = isDelivery
+        ? <String>[
+            "Pending",
+            "Accepted",
+            "Packed",
+            "Out for Delivery",
+            "Delivered",
+          ]
+        : <String>[
+            "Pending",
+            "Accepted",
+            "Packed",
+            "Picked by Customer",
+          ];
+
+    if (displayStatus == "Cancelled") {
+      final completedStatus = isDelivery ? "Delivered" : "Picked by Customer";
+      return [
+        ...baseFlow.takeWhile((status) => status != completedStatus),
+        "Cancelled"
+      ];
+    }
+
+    return baseFlow;
+  }
+
   bool get isOngoing =>
       displayStatus == "Pending" ||
       displayStatus == "Accepted" ||
+      displayStatus == "Packed" ||
       displayStatus == "Out for Delivery";
 
   factory OrderModel.fromJson(Map<String, dynamic> json) {
@@ -411,7 +629,17 @@ class OrderModel {
       id: json['_id'] ?? '',
       orderStatus: json['orderStatus'] ?? '',
       paymentStatus: json['paymentStatus'] ?? '',
+      driverStatus: json['driverStatus'] ?? '',
+      fulfillmentType: json['fulfillmentType'] ?? 'DELIVERY',
       createdAt: json['createdAt'] ?? '',
+      updatedAt: json['updatedAt']?.toString(),
+      adminAcceptedAt: json['adminAcceptedAt']?.toString(),
+      acceptedAt: json['acceptedAt']?.toString(),
+      packedAt: json['packedAt']?.toString(),
+      pickedAt: json['pickedAt']?.toString(),
+      customerPickedUpAt: json['customerPickedUpAt']?.toString(),
+      cancelledAt: json['cancelledAt']?.toString(),
+      deliveredAt: json['deliveredAt']?.toString(),
       items: (json['items'] as List? ?? [])
           .map((x) => OrderItem.fromJson(x))
           .toList(),
@@ -420,6 +648,50 @@ class OrderModel {
       platformFee: (json['platformFee'] ?? 0).toDouble(),
       gstAmount: (json['gstAmount'] ?? 0).toDouble(),
       totalAmount: (json['totalAmount'] ?? 0).toDouble(),
+      warehouseAssignment: json['warehouseAssignment'] != null
+          ? WarehouseAssignment.fromJson(json['warehouseAssignment'])
+          : null,
+    );
+  }
+
+  static DateTime? _parseDate(String? value) {
+    if (value == null || value.isEmpty) return null;
+    return DateTime.tryParse(value)?.toLocal();
+  }
+}
+
+class WarehouseAssignment {
+  final String warehouseId;
+  final String name;
+  final String fullAddress;
+  final String mapLink;
+  final double? latitude;
+  final double? longitude;
+
+  WarehouseAssignment({
+    required this.warehouseId,
+    required this.name,
+    required this.fullAddress,
+    required this.mapLink,
+    required this.latitude,
+    required this.longitude,
+  });
+
+  factory WarehouseAssignment.fromJson(Map<String, dynamic> json) {
+    final location = json['location'] as Map<String, dynamic>?;
+    final coordinates = location?['coordinates'] as List?;
+
+    return WarehouseAssignment(
+      warehouseId: json['warehouseId']?.toString() ?? '',
+      name: json['name']?.toString() ?? '',
+      fullAddress: json['fullAddress']?.toString() ?? '',
+      mapLink: json['mapLink']?.toString() ?? '',
+      latitude: coordinates != null && coordinates.length == 2
+          ? (coordinates[1] as num).toDouble()
+          : null,
+      longitude: coordinates != null && coordinates.length == 2
+          ? (coordinates[0] as num).toDouble()
+          : null,
     );
   }
 }

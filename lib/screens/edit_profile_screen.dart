@@ -578,8 +578,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             children: [
               _profileHeader(imageProvider),
               const SizedBox(height: 24),
-              _statusCard(),
-              const SizedBox(height: 20),
               _infoTile(Icons.person_outline, "Name", _fallbackValue(nameCtrl.text)),
               _infoTile(Icons.cake_outlined, "DOB", _fallbackValue(dobCtrl.text)),
               _infoTile(
@@ -671,78 +669,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           style: TextStyle(color: Colors.grey.shade600),
         ),
       ],
-    );
-  }
-
-  Widget _statusCard() {
-    Color color;
-    IconData icon;
-
-    switch (verificationStatus) {
-      case "APPROVED":
-        color = Colors.green;
-        icon = Icons.verified;
-        break;
-      case "REJECTED":
-        color = Colors.red;
-        icon = Icons.cancel;
-        break;
-      case "NOT_SUBMITTED":
-        color = Colors.blueGrey;
-        icon = Icons.assignment_late_outlined;
-        break;
-      default:
-        color = Colors.orange;
-        icon = Icons.hourglass_top;
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            color.withOpacity(0.12),
-            Colors.white,
-          ],
-        ),
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: color.withOpacity(0.15),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.15),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: color, size: 22),
-          ),
-
-          const SizedBox(width: 12),
-
-          Expanded(
-            child: Text(
-              "Verification: $verificationStatus",
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                color: color,
-                fontSize: 15,
-              ),
-            ),
-          ),
-
-
-        ],
-      ),
     );
   }
 

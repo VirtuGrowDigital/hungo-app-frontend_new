@@ -50,7 +50,7 @@ class OrderController extends GetxController {
 
     try {
       final token = await _storage.read(key: 'accessToken');
-      print("token $token");
+      debugPrint("token $token");
       if (token == null) {
         debugPrint("❌ Access token not found");
         isLoading.value = false;
@@ -69,7 +69,7 @@ class OrderController extends GetxController {
         }
       }
 
-      print(
+      debugPrint(
         "Address $shippingAddress,paymentMethod $paymentMethod, "
         "fulfillmentType $fulfillmentType, Bearer $token",
       );
@@ -100,7 +100,7 @@ class OrderController extends GetxController {
       );
 
       final data = jsonDecode(response.body) as Map<String, dynamic>;
-      print("Payment Data $data");
+      debugPrint("Payment Data $data");
       if (paymentMethod == "ONLINE" && data["success"] == true) {
         if (data['type'] == "WALLET") {
           isLoading.value = false;

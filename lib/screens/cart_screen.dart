@@ -15,7 +15,7 @@ import 'widgets/cart_item_tile.dart';
 class CartScreen extends StatelessWidget {
   CartScreen({super.key});
 
-  final CartController controller = Get.put(CartController());
+  final CartController controller = Get.find<CartController>();
   final AuthController authController = Get.find<AuthController>();
 
   @override

@@ -69,7 +69,9 @@ class HomeController extends GetxController {
     fetchBanners(); // 🔥 ADD THIS
 
     /// ✅ Ensure CartController exists once
-    Get.put(CartController(), permanent: true);
+    if (!Get.isRegistered<CartController>()) {
+      Get.put(CartController(), permanent: true);
+    }
   }
 
   @override

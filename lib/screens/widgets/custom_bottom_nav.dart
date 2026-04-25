@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../controllers/cart_controller.dart';
 import '../../controllers/home_controller.dart';
 import '../../utils/ImageConstant.dart';
 
@@ -7,6 +8,7 @@ class CustomBottomNav extends StatelessWidget {
   CustomBottomNav({super.key});
 
   final controller = Get.find<HomeController>();
+  final cartController = Get.find<CartController>();
 
   @override
   Widget build(BuildContext context) {
@@ -55,7 +57,7 @@ class CustomBottomNav extends StatelessWidget {
                   padding: const EdgeInsets.all(6),
                   child: CircleAvatar(
                     backgroundColor: Colors.green.shade100,
-                    backgroundImage: const AssetImage(ImageConstant.logoHungZo),
+                    backgroundImage: AssetImage(ImageConstant.logoHungZo),
                   ),
                 ),
               ),
@@ -67,13 +69,48 @@ class CustomBottomNav extends StatelessWidget {
   }
 
   Widget navIcon(IconData icon, int index) {
+    final isCartIcon = index == 1;
+    final itemCount = cartController.totalCartItemCount;
+
     return GestureDetector(
       onTap: () => controller.changeTab(index),
-      child: Icon(
-        icon,
-        size: 26,
-        color:
-            controller.bottomIndex.value == index ? Colors.green : Colors.grey,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Icon(
+            icon,
+            size: 26,
+            color: controller.bottomIndex.value == index
+                ? Colors.green
+                : Colors.grey,
+          ),
+          if (isCartIcon && itemCount > 0)
+            Positioned(
+              right: -8,
+              top: -8,
+              child: Container(
+                constraints: const BoxConstraints(
+                  minWidth: 18,
+                  minHeight: 18,
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                decoration: BoxDecoration(
+                  color: Colors.red,
+                  borderRadius: BorderRadius.circular(9),
+                  border: Border.all(color: Colors.white, width: 1.5),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  itemCount > 99 ? '99+' : '$itemCount',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

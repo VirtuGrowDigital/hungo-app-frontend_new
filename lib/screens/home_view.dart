@@ -8,14 +8,26 @@ import 'package:hungzo_app/screens/widgets/product_card.dart';
 import 'package:hungzo_app/screens/widgets/search_bar.dart';
 import 'package:shimmer/shimmer.dart';
 
+import '../controllers/cart_controller.dart';
 import '../controllers/home_controller.dart';
 import '../utils/ColorConstants.dart';
 
 class HomeView extends GetView<HomeController> {
   const HomeView({super.key});
 
+  static const double _bottomNavHeight = 70;
+
+  double _cartBadgeLeft(double width, int itemCount) {
+    final itemWidth = width / 4;
+    final cartCenter = itemWidth * 1.5;
+    final badgeWidth = itemCount > 99 ? 28.0 : 20.0;
+    return cartCenter - 2 + (30 / 2) - (badgeWidth / 2);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final cartController = Get.find<CartController>();
+
     return Scaffold(
       backgroundColor: ColorConstants.mintCream,
       floatingActionButton: FloatingActionButton(
@@ -28,19 +40,67 @@ class HomeView extends GetView<HomeController> {
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       body: Obx(() => controller.screens[controller.bottomIndex.value]),
-      bottomNavigationBar: Obx(
-        () => AnimatedBottomNavigationBar(
-          icons: controller.iconList,
-          activeIndex: controller.bottomIndex.value,
-          gapLocation: GapLocation.none,
-          activeColor: ColorConstants.primary,
-          inactiveColor: Colors.grey,
-          iconSize: 30,
-          leftCornerRadius: 30,
-          rightCornerRadius: 30,
-          onTap: controller.changeTab,
-        ),
-      ),
+      bottomNavigationBar: Obx(() {
+        final itemCount = cartController.cartItems.fold<int>(
+          0,
+          (sum, item) => sum + item.quantity,
+        );
+
+        return SizedBox(
+          height: _bottomNavHeight,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Positioned.fill(
+                    child: AnimatedBottomNavigationBar(
+                      icons: controller.iconList,
+                      activeIndex: controller.bottomIndex.value,
+                      gapLocation: GapLocation.none,
+                      activeColor: ColorConstants.primary,
+                      inactiveColor: Colors.grey,
+                      iconSize: 30,
+                      leftCornerRadius: 30,
+                      rightCornerRadius: 30,
+                      onTap: controller.changeTab,
+                    ),
+                  ),
+                  if (itemCount > 0)
+                    Positioned(
+                      left: _cartBadgeLeft(constraints.maxWidth, itemCount),
+                      top: 8,
+                      child: IgnorePointer(
+                        child: Container(
+                          constraints: BoxConstraints(
+                            minWidth: itemCount > 99 ? 28 : 20,
+                            minHeight: 20,
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 5),
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.white, width: 1.5),
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            itemCount > 99 ? '99+' : '$itemCount',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              height: 1,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+        );
+      }),
     );
   }
 }

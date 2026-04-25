@@ -714,7 +714,12 @@ class ApiService implements ApiRepository {
         throw Exception('Token is missing. Please log in again.');
       }
 
-      final response = await dio.patch(ApiConstants.cancelOrder, data: request);
+      final orderId = request['orderId']?.trim();
+      if (orderId == null || orderId.isEmpty) {
+        throw Exception('Order ID is required.');
+      }
+
+      final response = await dio.patch("orders/$orderId/cancel");
 
       if (response.statusCode == 200) {
         return OrderHistoryModel.fromJson(response.data);
