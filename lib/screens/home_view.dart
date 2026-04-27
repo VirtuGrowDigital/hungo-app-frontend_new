@@ -9,8 +9,11 @@ import 'package:hungzo_app/screens/widgets/search_bar.dart';
 import 'package:shimmer/shimmer.dart';
 
 import '../controllers/cart_controller.dart';
+import '../controllers/auth_controller.dart';
 import '../controllers/home_controller.dart';
+import '../controllers/wallet_controller.dart';
 import '../utils/ColorConstants.dart';
+import 'wallet_screen.dart';
 
 class HomeView extends GetView<HomeController> {
   const HomeView({super.key});
@@ -112,235 +115,475 @@ class HomeScreen extends GetView<HomeController> {
   Widget build(BuildContext context) {
     return SafeArea(
       child: Scaffold(
+        backgroundColor: ColorConstants.mintCream,
         body: Container(
-          decoration: BoxDecoration(
+          decoration: const BoxDecoration(
             gradient: ColorConstants.screenBackgroundGradient2,
           ),
-          child: CustomScrollView(
-            slivers: [
-              /// 🔥 FIXED HEADER
+          child: NestedScrollView(
+            headerSliverBuilder: (_, __) => [
               SliverPersistentHeader(
                 pinned: true,
                 delegate: HomeHeaderDelegate(),
               ),
-
-              /// 🔥 BODY CONTENT
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(14, 12, 14, 18),
-                sliver: SliverList(
-                  delegate: SliverChildListDelegate([
-                    const BannerCard(),
-                    const SizedBox(height: 18),
-
-                    Obx(() {
-                      if (controller.isSearching) {
-                        return _sectionCard(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Search Results',
-                                style: TextStyle(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.w800,
-                                  color: Color(0xFF17392D),
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                'Showing results for "${controller.searchQuery.value.trim()}"',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey.shade700,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                '${controller.products.length} items found',
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: ColorConstants.primaryDark,
-                                ),
-                              ),
-                              if (controller.searchError.value.isNotEmpty) ...[
-                                const SizedBox(height: 8),
-                                Text(
-                                  controller.searchError.value,
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    color: Colors.redAccent,
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        );
-                      }
-
-                      return const _SectionHeading(
-                        title: "Shop by category",
-                        subtitle:
-                            "Browse curated collections and discover products faster.",
-                      );
-                    }),
-                    const SizedBox(height: 14),
-
-                    /// ---------- CATEGORY ----------
-                    Obx(() {
-                      if (controller.isSearching) {
-                        return const SizedBox.shrink();
-                      }
-
-                      if (controller.isLoading.value &&
-                          controller.products.isEmpty) {
-                        return _categoryShimmer();
-                      }
-
-                      final cats = controller.categories;
-
-                      return _sectionCard(
-                        padding: const EdgeInsets.fromLTRB(14, 16, 14, 16),
-                        child: SizedBox(
-                          height: 140,
-                          child: ListView.separated(
-                            scrollDirection: Axis.horizontal,
-                            itemCount: cats.length,
-                            separatorBuilder: (_, __) =>
-                                const SizedBox(width: 12),
-                            itemBuilder: (_, index) {
-                              final category = cats[index];
-
-                              String imageUrl = '';
-                              final products =
-                                  category['products'] as List<dynamic>?;
-
-                              if (products != null && products.isNotEmpty) {
-                                final firstProduct =
-                                    products.first as Map<String, dynamic>;
-                                final images =
-                                    firstProduct['images'] as List<dynamic>?;
-
-                                if (images != null && images.isNotEmpty) {
-                                  imageUrl = images.first.toString();
-                                }
-                              }
-
-                              return GestureDetector(
-                                onTap: () => controller.changeCategory(
-                                  category["category"],
-                                ),
-                                child: CategoryCard(
-                                  title: category["category"] ?? 'Unknown',
-                                  subtitle: "${products?.length ?? 0} items",
-                                  image: imageUrl.isNotEmpty
-                                      ? imageUrl
-                                      : 'assets/permission/location.png',
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      );
-                    }),
-
-                    const SizedBox(height: 18),
-                    Obx(() => controller.isSearching
-                        ? const SizedBox.shrink()
-                        : const _SectionHeading(
-                            title: "Refine your picks",
-                            subtitle:
-                                "Sort and filter products to find the best match.",
-                          )),
-                    const SizedBox(height: 12),
-                    Obx(() => controller.isSearching
-                        ? const SizedBox.shrink()
-                        : _sectionCard(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 12,
-                            ),
-                            child: SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              child: FilterBar(),
-                            ),
-                          )),
-                    const SizedBox(height: 18),
-                    Obx(
-                      () => _SectionHeading(
-                        title: controller.isSearching
-                            ? "Matching products"
-                            : "Popular products",
-                        subtitle: controller.isSearching
-                            ? "A refined list based on your current search."
-                            : "${controller.products.length} products ready to order",
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-
-                    /// ---------- PRODUCTS ----------
-                    Obx(() {
-                      if ((controller.isLoading.value ||
-                              controller.isSearchLoading.value) &&
-                          controller.products.isEmpty) {
-                        return _productGridShimmer();
-                      }
-                      final products = controller.products;
-
-                      if (products.isEmpty) {
-                        return _sectionCard(
-                          child: Center(
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 24),
-                              child: Text(
-                                controller.isSearching
-                                    ? "No matching products found"
-                                    : "No products available",
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.grey.shade700,
-                                ),
-                              ),
-                            ),
-                          ),
-                        );
-                      }
-
-                      return _sectionCard(
-                        padding: const EdgeInsets.fromLTRB(12, 16, 12, 8),
-                        child: ProductGrid(products: products),
-                      );
-                    }),
-                  ]),
+              const SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(14, 12, 14, 10),
+                  child: BannerCard(),
                 ),
               ),
             ],
+            body: const _MarketplaceSection(),
           ),
         ),
       ),
     );
   }
+}
 
-  Widget _productGridShimmer() {
-    return _sectionCard(
-      padding: const EdgeInsets.fromLTRB(12, 16, 12, 8),
-      child: GridView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          mainAxisSpacing: 16,
-          crossAxisSpacing: 16,
-          childAspectRatio: 0.66,
+class _MarketplaceSection extends StatefulWidget {
+  const _MarketplaceSection();
+
+  @override
+  State<_MarketplaceSection> createState() => _MarketplaceSectionState();
+}
+
+class _MarketplaceSectionState extends State<_MarketplaceSection> {
+  final ScrollController _categoryScrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _categoryScrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = Get.find<HomeController>();
+
+    return Container(
+      color: const Color(0xFFF4FBF7),
+      child: Column(
+        children: [
+          Container(
+            width: double.infinity,
+            decoration: const BoxDecoration(
+              color: Color(0xFFF8FCFA),
+              border: Border(
+                top: BorderSide(color: Color(0xFFD9E7E0)),
+                bottom: BorderSide(color: Color(0xFFD9E7E0)),
+              ),
+            ),
+            child: const Padding(
+              padding: EdgeInsets.fromLTRB(14, 10, 14, 10),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: FilterBar(),
+              ),
+            ),
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(0, 0, 0, 0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SizedBox(
+                    width: 104,
+                    child: Obx(() {
+                      if (controller.isLoading.value &&
+                          controller.categories.isEmpty) {
+                        return _CategoryRailShimmer(
+                          controller: _categoryScrollController,
+                        );
+                      }
+
+                      return _CategoryRail(
+                        scrollController: _categoryScrollController,
+                      );
+                    }),
+                  ),
+                  const VerticalDivider(
+                    width: 1,
+                    thickness: 1,
+                    color: Color(0xFFD9E7E0),
+                  ),
+                  Expanded(
+                    child: Obx(() {
+                      if ((controller.isLoading.value ||
+                              controller.isSearchLoading.value) &&
+                          controller.products.isEmpty) {
+                        return const _ProductPaneShimmer();
+                      }
+
+                      return _ProductPane(
+                        key: ValueKey(
+                          "${controller.selectedCategory.value}-${controller.searchQuery.value}-${controller.contentViewVersion.value}",
+                        ),
+                      );
+                    }),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CategoryRail extends GetView<HomeController> {
+  final ScrollController scrollController;
+
+  const _CategoryRail({required this.scrollController});
+
+  void _scrollToCategory(int index) {
+    if (!scrollController.hasClients) return;
+
+    const itemExtent = 122.0;
+    final targetOffset = (index * itemExtent).toDouble();
+    final maxScrollExtent = scrollController.position.maxScrollExtent;
+
+    scrollController.animateTo(
+      targetOffset.clamp(0.0, maxScrollExtent),
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(12, 14, 12, 12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF5FBF8),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.03),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: const [
+              Text(
+                "Shop by",
+                textAlign: TextAlign.left,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF6A8579),
+                  letterSpacing: 0.2,
+                ),
+              ),
+              SizedBox(height: 3),
+              Text(
+                "Categories",
+                textAlign: TextAlign.left,
+                maxLines: 1,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF17392D),
+                  letterSpacing: -0.2,
+                ),
+              ),
+            ],
+          ),
         ),
+        Expanded(
+          child: Obx(
+            () => ScrollConfiguration(
+              behavior: const _NoScrollbarScrollBehavior(),
+              child: ListView.separated(
+                controller: scrollController,
+                padding: const EdgeInsets.fromLTRB(8, 10, 8, 16),
+                itemCount: controller.categories.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 10),
+                itemBuilder: (_, index) {
+                  final category = controller.categories[index];
+                  final categoryName =
+                      category["category"]?.toString().trim() ?? "Unknown";
+                  final products = category['products'] as List<dynamic>? ?? [];
+                  var imageUrl = '';
+
+                  if (products.isNotEmpty) {
+                    final firstProduct = products.first as Map<String, dynamic>;
+                    final images =
+                        firstProduct['images'] as List<dynamic>? ?? [];
+                    if (images.isNotEmpty) {
+                      imageUrl = images.first.toString();
+                    }
+                  }
+
+                  return CategoryCard(
+                    key: ValueKey(categoryName),
+                    title: categoryName,
+                    subtitle: "${products.length} items",
+                    image: imageUrl.isNotEmpty
+                        ? imageUrl
+                        : 'assets/permission/location.png',
+                    isSelected: controller.normalizeCategoryName(
+                          controller.selectedCategory.value,
+                        ) ==
+                        controller.normalizeCategoryName(categoryName),
+                    onTap: () {
+                      controller.changeCategory(categoryName);
+                      _scrollToCategory(index);
+                    },
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _NoScrollbarScrollBehavior extends MaterialScrollBehavior {
+  const _NoScrollbarScrollBehavior();
+
+  @override
+  Widget buildScrollbar(
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) {
+    return child;
+  }
+}
+
+class _ProductPane extends GetView<HomeController> {
+  const _ProductPane({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final primaryController = PrimaryScrollController.of(context);
+    final products = controller.products;
+
+    return CustomScrollView(
+      controller: primaryController,
+      slivers: [
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 6),
+            child: _ProductPaneHeader(controller: controller),
+          ),
+        ),
+        if (controller.searchError.value.isNotEmpty)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF0F0),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFFFD4D4)),
+                ),
+                child: Text(
+                  controller.searchError.value,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFFC23C3C),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        if (products.isEmpty)
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 72,
+                      height: 72,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEAF7F1),
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                      child: const Icon(
+                        Icons.search_off_rounded,
+                        size: 34,
+                        color: ColorConstants.primaryDark,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      controller.isSearching
+                          ? "No products matched your search"
+                          : "No products available right now",
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF17392D),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      "Try another category or reset the filters to see more items.",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        height: 1.45,
+                        color: Color(0xFF678277),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          )
+        else
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(14, 6, 14, 24),
+            sliver: SliverGrid(
+              delegate: SliverChildBuilderDelegate(
+                (_, index) => ProductCard(product: products[index]),
+                childCount: products.length,
+              ),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                mainAxisSpacing: 14,
+                crossAxisSpacing: 12,
+                childAspectRatio: 0.56,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _ProductPaneHeader extends StatelessWidget {
+  final HomeController controller;
+
+  const _ProductPaneHeader({required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    final isSearching = controller.isSearching;
+    final title = isSearching
+        ? 'Results for "${controller.searchQuery.value.trim()}"'
+        : controller.selectedCategory.value.isNotEmpty
+            ? controller.selectedCategory.value
+            : "All products";
+    final subtitle = isSearching
+        ? "${controller.products.length} matching products"
+        : "${controller.products.length} products available";
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [
+            Color(0xFFF4FCEB),
+            Color(0xFFEAF7F1),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFD6E6DD)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 19,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF17392D),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF5D776D),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          if (isSearching)
+            TextButton(
+              onPressed: controller.clearSearch,
+              style: TextButton.styleFrom(
+                foregroundColor: ColorConstants.primaryDark,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              ),
+              child: const Text(
+                "Clear",
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+            )
+          else if (controller.hasActiveFilters)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.9),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                "${controller.activeFilterCount} active",
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF17392D),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CategoryRailShimmer extends StatelessWidget {
+  final ScrollController controller;
+
+  const _CategoryRailShimmer({required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scrollbar(
+      controller: controller,
+      thumbVisibility: true,
+      radius: const Radius.circular(999),
+      child: ListView.separated(
+        controller: controller,
         itemCount: 6,
+        separatorBuilder: (_, __) => const SizedBox(height: 10),
         itemBuilder: (_, __) {
           return Shimmer.fromColors(
             baseColor: Colors.grey.shade300,
             highlightColor: Colors.grey.shade200,
             child: Container(
+              height: 106,
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(20),
@@ -351,87 +594,56 @@ class HomeScreen extends GetView<HomeController> {
       ),
     );
   }
-
-  Widget _categoryShimmer() {
-    return _sectionCard(
-      padding: const EdgeInsets.fromLTRB(14, 16, 14, 16),
-      child: SizedBox(
-        height: 140,
-        child: ListView.separated(
-          scrollDirection: Axis.horizontal,
-          itemCount: 5,
-          separatorBuilder: (_, __) => const SizedBox(width: 12),
-          itemBuilder: (_, __) {
-            return Shimmer.fromColors(
-              baseColor: Colors.grey.shade300,
-              highlightColor: Colors.grey.shade200,
-              child: Container(
-                width: 130,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-            );
-          },
-        ),
-      ),
-    );
-  }
-
-  Widget _sectionCard({
-    required Widget child,
-    EdgeInsetsGeometry padding = const EdgeInsets.all(16),
-  }) {
-    return Container(
-      width: double.infinity,
-      padding: padding,
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.94),
-        borderRadius: BorderRadius.circular(26),
-        border: Border.all(color: const Color(0xFFE2ECE6)),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF123C2D).withValues(alpha: 0.05),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: child,
-    );
-  }
 }
 
-class _SectionHeading extends StatelessWidget {
-  final String title;
-  final String subtitle;
-
-  const _SectionHeading({
-    required this.title,
-    required this.subtitle,
-  });
+class _ProductPaneShimmer extends StatelessWidget {
+  const _ProductPaneShimmer();
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.w800,
-            color: Color(0xFF17392D),
+    final primaryController = PrimaryScrollController.of(context);
+
+    return CustomScrollView(
+      controller: primaryController,
+      slivers: [
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+            child: Shimmer.fromColors(
+              baseColor: Colors.grey.shade300,
+              highlightColor: Colors.grey.shade200,
+              child: Container(
+                height: 92,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+              ),
+            ),
           ),
         ),
-        const SizedBox(height: 6),
-        Text(
-          subtitle,
-          style: TextStyle(
-            fontSize: 14,
-            color: Colors.grey.shade700,
-            height: 1.35,
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(14, 0, 14, 24),
+          sliver: SliverGrid(
+            delegate: SliverChildBuilderDelegate(
+              (_, __) => Shimmer.fromColors(
+                baseColor: Colors.grey.shade300,
+                highlightColor: Colors.grey.shade200,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+              ),
+              childCount: 6,
+            ),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              mainAxisSpacing: 14,
+              crossAxisSpacing: 12,
+              childAspectRatio: 0.56,
+            ),
           ),
         ),
       ],
@@ -441,10 +653,10 @@ class _SectionHeading extends StatelessWidget {
 
 class HomeHeaderDelegate extends SliverPersistentHeaderDelegate {
   @override
-  double get minExtent => 84;
+  double get minExtent => 138;
 
   @override
-  double get maxExtent => 84;
+  double get maxExtent => 138;
 
   @override
   Widget build(
@@ -453,7 +665,7 @@ class HomeHeaderDelegate extends SliverPersistentHeaderDelegate {
     bool overlapsContent,
   ) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
@@ -464,12 +676,106 @@ class HomeHeaderDelegate extends SliverPersistentHeaderDelegate {
           ],
         ),
       ),
-      child: const SearchDishBar(),
+      child: const Column(
+        children: [
+          _HungzoHeaderBar(),
+          SizedBox(height: 10),
+          SearchDishBar(),
+        ],
+      ),
     );
   }
 
   @override
   bool shouldRebuild(covariant SliverPersistentHeaderDelegate oldDelegate) {
     return true;
+  }
+}
+
+class _HungzoHeaderBar extends StatelessWidget {
+  const _HungzoHeaderBar();
+
+  String _formatBalance(double value) => "₹${value.toStringAsFixed(0)}";
+
+  Future<void> _openWallet() async {
+    final authController = Get.find<AuthController>();
+    final didLogin = await authController.ensureAuthenticated(
+      title: 'Login to view wallet',
+      message: 'Please log in to check your wallet balance and transactions.',
+    );
+
+    if (!didLogin) return;
+
+    final walletController = Get.find<WalletController>();
+    await walletController.fetchWallet();
+    Get.to(() => WalletScreen());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final walletController = Get.find<WalletController>();
+    final authController = Get.find<AuthController>();
+
+    return SizedBox(
+      height: 40,
+      child: Row(
+        children: [
+          const Expanded(
+            child: Text(
+              "Hungzo",
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 26,
+                fontWeight: FontWeight.w900,
+                color: Color(0xFF17392D),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Obx(() {
+            final isLoggedIn = authController.isLoggedIn.value;
+            final balance = walletController.wallet.value?.balance ?? 0.0;
+            final label = isLoggedIn ? _formatBalance(balance) : "Login";
+
+            return Material(
+              color: Colors.white.withValues(alpha: 0.9),
+              borderRadius: BorderRadius.circular(999),
+              child: InkWell(
+                onTap: _openWallet,
+                borderRadius: BorderRadius.circular(999),
+                child: Container(
+                  height: 38,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(color: const Color(0xFFD6E6DD)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.account_balance_wallet_outlined,
+                        size: 19,
+                        color: ColorConstants.success,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        label,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF17392D),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
   }
 }

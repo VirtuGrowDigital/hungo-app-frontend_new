@@ -20,8 +20,9 @@ class HomeController extends GetxController {
   /// ================= FILTER STATE =================
 
   final RxnInt sortIndex = RxnInt(); // nullable
+  final RxnInt priceRangeIndex = RxnInt();
   final RxBool ratingFilter = false.obs;
-  final RxBool priceFilter = false.obs;
+  final RxBool inStockOnly = false.obs;
   final RxBool isSearchLoading = false.obs;
   final RxString searchQuery = ''.obs;
   final RxString searchError = ''.obs;
@@ -38,6 +39,22 @@ class HomeController extends GetxController {
 
   /// original products (backup)
   List<Map<String, dynamic>> originalProducts = [];
+  List<Map<String, dynamic>> _sourceProducts = [];
+
+  static const List<String> sortOptions = [
+    "Recommended",
+    "Price: Low to High",
+    "Price: High to Low",
+    "Top Rated",
+    "Name: A to Z",
+  ];
+
+  static const List<String> priceRangeOptions = [
+    "Under ₹100",
+    "₹100 - ₹249",
+    "₹250 - ₹499",
+    "₹500 & above",
+  ];
 
   /// Bottom navigation icons
   final List<IconData> iconList = const [
@@ -60,6 +77,7 @@ class HomeController extends GetxController {
   final RxList<Map<String, dynamic>> categories = <Map<String, dynamic>>[].obs;
   final RxList<Map<String, dynamic>> products = <Map<String, dynamic>>[].obs;
   final RxString selectedCategory = "".obs;
+  final RxInt contentViewVersion = 0.obs;
 
   @override
   void onInit() {
@@ -82,39 +100,91 @@ class HomeController extends GetxController {
     super.onClose();
   }
 
+  String get selectedSortLabel =>
+      sortIndex.value == null ? "Sort" : sortOptions[sortIndex.value!];
+
+  String get selectedPriceRangeLabel => priceRangeIndex.value == null
+      ? "Price"
+      : priceRangeOptions[priceRangeIndex.value!];
+
+  bool get hasActiveFilters =>
+      sortIndex.value != null ||
+      priceRangeIndex.value != null ||
+      ratingFilter.value ||
+      inStockOnly.value;
+
+  int get activeFilterCount {
+    var count = 0;
+    if (sortIndex.value != null) count++;
+    if (priceRangeIndex.value != null) count++;
+    if (ratingFilter.value) count++;
+    if (inStockOnly.value) count++;
+    return count;
+  }
+
+  String normalizeCategoryName(String? value) =>
+      value?.trim().toLowerCase() ?? '';
+
+  void updateFilterState({
+    int? sort,
+    bool resetSort = false,
+    int? priceRange,
+    bool resetPriceRange = false,
+    bool? rating,
+    bool? stockOnly,
+  }) {
+    sortIndex.value = resetSort ? null : sort ?? sortIndex.value;
+    priceRangeIndex.value =
+        resetPriceRange ? null : priceRange ?? priceRangeIndex.value;
+    if (rating != null) ratingFilter.value = rating;
+    if (stockOnly != null) inStockOnly.value = stockOnly;
+    applyFilters();
+  }
+
+  void setSortIndex(int? value) => updateFilterState(
+        sort: value,
+        resetSort: value == null,
+      );
+
+  void setPriceRangeIndex(int? value) => updateFilterState(
+        priceRange: value,
+        resetPriceRange: value == null,
+      );
+
+  void toggleRatingFilter() => updateFilterState(rating: !ratingFilter.value);
+
+  void toggleInStockOnly() => updateFilterState(stockOnly: !inStockOnly.value);
+
   void applyFilters() {
-    List<Map<String, dynamic>> filtered = [...originalProducts];
+    List<Map<String, dynamic>> filtered = [..._sourceProducts];
 
-    // =================================================
-    // ⭐ PRICE FILTER (use FIRST variety price)
-    // =================================================
-
-    if (priceFilter.value) {
-      filtered = filtered.where((p) {
-        final varieties = p["varieties"] as List?;
-
-        if (varieties == null || varieties.isEmpty) return false;
-
-        final price = (varieties[0]["price"] ?? 0).toDouble();
-
-        return price >= 200 && price <= 400; // adjust range
-      }).toList();
+    if (priceRangeIndex.value != null) {
+      filtered = filtered
+          .where(
+              (product) => _matchesPriceRange(product, priceRangeIndex.value!))
+          .toList();
     }
 
-    // =================================================
-    // ⭐ SORT
-    // =================================================
+    if (ratingFilter.value) {
+      filtered =
+          filtered.where((product) => _productRating(product) >= 4).toList();
+    }
+
+    if (inStockOnly.value) {
+      filtered =
+          filtered.where((product) => _isProductAvailable(product)).toList();
+    }
 
     if (sortIndex.value != null) {
       filtered.sort((a, b) {
-        final aPrice = (a["varieties"][0]["price"] ?? 0).toDouble();
-
-        final bPrice = (b["varieties"][0]["price"] ?? 0).toDouble();
-
         if (sortIndex.value == 1) {
-          return aPrice.compareTo(bPrice); // low → high
+          return _productPrice(a).compareTo(_productPrice(b));
         } else if (sortIndex.value == 2) {
-          return bPrice.compareTo(aPrice); // high → low
+          return _productPrice(b).compareTo(_productPrice(a));
+        } else if (sortIndex.value == 3) {
+          return _productRating(b).compareTo(_productRating(a));
+        } else if (sortIndex.value == 4) {
+          return _productName(a).compareTo(_productName(b));
         }
 
         return 0;
@@ -139,13 +209,11 @@ class HomeController extends GetxController {
           );
 
           if (categories.isNotEmpty) {
-            selectedCategory.value = categories.first["category"];
-
-            /// 🔥 SAVE BACKUP
-            originalProducts =
-                List<Map<String, dynamic>>.from(categories.first["products"]);
-
-            products.assignAll(originalProducts);
+            selectedCategory.value =
+                categories.first["category"]?.toString().trim() ?? '';
+            _setSourceProducts(
+              List<Map<String, dynamic>>.from(categories.first["products"]),
+            );
           }
         }
       }
@@ -158,38 +226,45 @@ class HomeController extends GetxController {
 
   void clearFilters() {
     sortIndex.value = null;
+    priceRangeIndex.value = null;
     ratingFilter.value = false;
-    priceFilter.value = false;
-
-    if (isSearching) {
-      onSearchChanged(searchQuery.value);
-      return;
-    }
-
-    products.assignAll(originalProducts);
+    inStockOnly.value = false;
+    applyFilters();
   }
 
   /// ================= CATEGORY CHANGE =================
   void changeCategory(String categoryName) {
-    selectedCategory.value = categoryName;
+    final normalizedCategoryName = categoryName.trim();
+    if (normalizedCategoryName.isEmpty) return;
+    if (normalizeCategoryName(selectedCategory.value) ==
+        normalizeCategoryName(normalizedCategoryName)) {
+      return;
+    }
 
-    final category = categories.firstWhere(
-      (c) => c["category"] == categoryName,
-      orElse: () => {},
+    final categoryIndex = categories.indexWhere(
+      (category) =>
+          normalizeCategoryName(category["category"]?.toString()) ==
+          normalizeCategoryName(normalizedCategoryName),
     );
 
-    if (category.isNotEmpty) {
-      /// 🔥 reset filters when category changes
-      sortIndex.value = null;
-      ratingFilter.value = false;
-      priceFilter.value = false;
+    if (categoryIndex == -1) return;
 
-      /// 🔥 update backup
-      originalProducts = List<Map<String, dynamic>>.from(category["products"]);
+    final selectedCategoryData = categories[categoryIndex];
+    selectedCategory.value =
+        selectedCategoryData["category"]?.toString().trim() ?? '';
+    selectedCategory.refresh();
 
-      /// 🔥 show raw products (NO FILTER)
-      products.assignAll(originalProducts);
-    }
+    Future.microtask(() {
+      if (isSearching) {
+        clearSearch();
+        return;
+      }
+
+      _setSourceProducts(
+        List<Map<String, dynamic>>.from(selectedCategoryData["products"]),
+      );
+      contentViewVersion.value++;
+    });
   }
 
   bool get isSearching => searchQuery.value.trim().isNotEmpty;
@@ -245,7 +320,7 @@ class HomeController extends GetxController {
         }
 
         if (data['success'] == true) {
-          products.assignAll(
+          _setSourceProducts(
             List<Map<String, dynamic>>.from(data['products'] ?? []),
           );
           return;
@@ -272,24 +347,28 @@ class HomeController extends GetxController {
     isSearchLoading.value = false;
     _restoreSelectedCategoryProducts();
     searchFocusNode.unfocus();
+    contentViewVersion.value++;
   }
 
   void _restoreSelectedCategoryProducts() {
     if (selectedCategory.value.isEmpty) {
-      products.assignAll(originalProducts);
+      _setSourceProducts(originalProducts);
       return;
     }
 
     final category = categories.firstWhere(
-      (c) => c["category"] == selectedCategory.value,
+      (c) =>
+          normalizeCategoryName(c["category"]?.toString()) ==
+          normalizeCategoryName(selectedCategory.value),
       orElse: () => {},
     );
 
     if (category.isNotEmpty) {
-      originalProducts = List<Map<String, dynamic>>.from(category["products"]);
+      _setSourceProducts(List<Map<String, dynamic>>.from(category["products"]));
+      return;
     }
 
-    products.assignAll(originalProducts);
+    _setSourceProducts(originalProducts);
   }
 
   /// ================= TAB CHANGE (🔥 FIX HERE) =================
@@ -329,6 +408,63 @@ class HomeController extends GetxController {
       }
     } catch (e) {
       debugPrint("Banner API ERROR: $e");
+    }
+  }
+
+  void _setSourceProducts(List<Map<String, dynamic>> source) {
+    originalProducts = List<Map<String, dynamic>>.from(source);
+    _sourceProducts = List<Map<String, dynamic>>.from(source);
+    applyFilters();
+    contentViewVersion.value++;
+  }
+
+  double _productPrice(Map<String, dynamic> product) {
+    final varieties = product["varieties"] as List<dynamic>? ?? [];
+    if (varieties.isNotEmpty) {
+      final first = varieties.first as Map<String, dynamic>;
+      final rawPrice = first["price"];
+      if (rawPrice is num) return rawPrice.toDouble();
+      return double.tryParse(rawPrice?.toString() ?? "0") ?? 0;
+    }
+
+    final rawPrice = product["price"];
+    if (rawPrice is num) return rawPrice.toDouble();
+    return double.tryParse(rawPrice?.toString() ?? "0") ?? 0;
+  }
+
+  double _productRating(Map<String, dynamic> product) {
+    final rawRating = product["rating"];
+    if (rawRating is num) return rawRating.toDouble();
+    return double.tryParse(rawRating?.toString() ?? "0") ?? 0;
+  }
+
+  String _productName(Map<String, dynamic> product) =>
+      (product["name"] ?? product["title"] ?? "").toString().toLowerCase();
+
+  bool _isProductAvailable(Map<String, dynamic> product) {
+    final varieties = product["varieties"] as List<dynamic>? ?? [];
+    if (varieties.isEmpty) return true;
+
+    return varieties.any((variety) {
+      if (variety is! Map<String, dynamic>) return false;
+      return variety["isAvailable"] != false;
+    });
+  }
+
+  bool _matchesPriceRange(Map<String, dynamic> product, int rangeIndex) {
+    final price = _productPrice(product);
+
+    switch (rangeIndex) {
+      case 0:
+        return price < 100;
+      case 1:
+        return price >= 100 && price < 250;
+      case 2:
+        return price >= 250 && price < 500;
+      case 3:
+        return price >= 500;
+      default:
+        return true;
     }
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../controllers/home_controller.dart';
+import 'filter_bar.dart';
 
 class SearchDishBar extends GetView<HomeController> {
   const SearchDishBar({super.key});
@@ -72,11 +73,32 @@ class SearchDishBar extends GetView<HomeController> {
                               color: Color(0xFF17392D),
                             ),
                           )
-                        : const Padding(
-                            padding: EdgeInsets.only(right: 14),
-                            child: Icon(
+                        : IconButton(
+                            onPressed: () async {
+                              final result = await showFilterBottomSheet(
+                                context,
+                                initialSortIndex: controller.sortIndex.value,
+                                initialPriceRangeIndex:
+                                    controller.priceRangeIndex.value,
+                                initialRatingEnabled:
+                                    controller.ratingFilter.value,
+                                initialStockOnly: controller.inStockOnly.value,
+                              );
+
+                              if (result == null) return;
+
+                              controller.updateFilterState(
+                                sort: result.sortIndex,
+                                resetSort: result.sortIndex == null,
+                                priceRange: result.priceRangeIndex,
+                                resetPriceRange: result.priceRangeIndex == null,
+                                rating: result.ratingEnabled,
+                                stockOnly: result.stockOnly,
+                              );
+                            },
+                            icon: const Icon(
                               Icons.tune_rounded,
-                              color: Color(0xFFBAC7C1),
+                              color: Color(0xFF91A39A),
                             ),
                           ),
                 border: OutlineInputBorder(

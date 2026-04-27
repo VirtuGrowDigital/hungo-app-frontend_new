@@ -20,6 +20,7 @@ class WalletController extends GetxController {
 
       if (token == null) {
         debugPrint("❌ Access  token not found");
+        wallet.value = null;
         isLoading.value = false;
         return;
       }
@@ -43,6 +44,10 @@ class WalletController extends GetxController {
     } finally {
       isLoading.value = false;
     }
+  }
+
+  void clearWallet() {
+    wallet.value = null;
   }
 
   @override

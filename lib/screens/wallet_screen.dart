@@ -7,7 +7,7 @@ import '../utils/ColorConstants.dart';
 class WalletScreen extends StatelessWidget {
   WalletScreen({super.key});
 
-  final controller = Get.put(WalletController());
+  final controller = Get.find<WalletController>();
 
   @override
   Widget build(BuildContext context) {
@@ -35,7 +35,6 @@ class WalletScreen extends StatelessWidget {
             physics: const AlwaysScrollableScrollPhysics(),
             child: Column(
               children: [
-
                 /// Balance Card
                 Container(
                   margin: const EdgeInsets.all(16),
@@ -45,14 +44,14 @@ class WalletScreen extends StatelessWidget {
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                       colors: [
-                        ColorConstants.success  ,
+                        ColorConstants.success,
                         ColorConstants.cardBackground,
                       ],
                     ),
                     borderRadius: BorderRadius.circular(24),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(.15),
+                        color: Colors.black.withValues(alpha: .15),
                         blurRadius: 20,
                         offset: const Offset(0, 10),
                       )
@@ -61,12 +60,10 @@ class WalletScreen extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-
                       /// 🔥 Top Row (Icon + Label)
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-
                           Row(
                             children: const [
                               Icon(
@@ -85,12 +82,11 @@ class WalletScreen extends StatelessWidget {
                               ),
                             ],
                           ),
-
                           Container(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
-                              color: Colors.white. withOpacity(.15),
+                              color: Colors.white.withValues(alpha: .15),
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: const Text(
@@ -148,7 +144,7 @@ class WalletScreen extends StatelessWidget {
                     child: Text(
                       "Transaction History",
                       style:
-                      TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ),
@@ -188,16 +184,13 @@ class WalletScreen extends StatelessWidget {
                               isCredit
                                   ? Icons.arrow_downward
                                   : Icons.arrow_upward,
-                              color: isCredit
-                                  ? Colors.green
-                                  : Colors.red,
+                              color: isCredit ? Colors.green : Colors.red,
                             ),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Column(
-                              crossAxisAlignment:
-                              CrossAxisAlignment.start,
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
                                   tx.reason,
@@ -207,8 +200,7 @@ class WalletScreen extends StatelessWidget {
                                 const SizedBox(height: 4),
                                 Text(
                                   tx.note ?? "",
-                                  style: TextStyle(
-                                      color: Colors.grey.shade600),
+                                  style: TextStyle(color: Colors.grey.shade600),
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
@@ -222,11 +214,10 @@ class WalletScreen extends StatelessWidget {
                             ),
                           ),
                           Text(
-                            "${isCredit ? "+" : "-"} ₹${tx.amount}",
+                            "${isCredit ? "+" : "-"} ₹${tx.amount.toStringAsFixed(0)}",
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
-                              color:
-                              isCredit ? Colors.green : Colors.red,
+                              color: isCredit ? Colors.green : Colors.red,
                             ),
                           )
                         ],

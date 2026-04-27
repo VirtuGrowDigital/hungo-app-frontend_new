@@ -13,7 +13,6 @@ import 'package:shimmer/shimmer.dart';
 import '../utils/ColorConstants.dart';
 import 'package:mime/mime.dart';
 
-
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
 
@@ -22,8 +21,7 @@ class EditProfileScreen extends StatefulWidget {
 }
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
-  final FlutterSecureStorage secureStorage =
-  const FlutterSecureStorage();
+  final FlutterSecureStorage secureStorage = const FlutterSecureStorage();
 
   final TextEditingController nameCtrl = TextEditingController();
   final TextEditingController emailCtrl = TextEditingController();
@@ -141,7 +139,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   //   }
   // }
 
-
   Future<void> updateProfile() async {
     const secureStorage = FlutterSecureStorage();
     final token = await secureStorage.read(key: 'accessToken');
@@ -242,7 +239,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       print("RESPONSE BODY: ${response.body}");
 
       /// Handle HTML responses gracefully
-      if (response.headers['content-type']?.contains('application/json') ?? false) {
+      if (response.headers['content-type']?.contains('application/json') ??
+          false) {
         final data = jsonDecode(response.body);
 
         if (response.statusCode == 200 && data["success"] == true) {
@@ -275,6 +273,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       Get.snackbar("Error", "Something went wrong");
     }
   }
+
   /// ================= EDIT POPUP =================
   void _showEditProfilePopup() {
     final tempName = TextEditingController(text: nameCtrl.text);
@@ -564,42 +563,42 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       body: isLoading
           ? _buildShimmer()
           : RefreshIndicator(
-        color: ColorConstants.success,
-        onRefresh: () async {
-          setState(() {
-            isLoading = true;
-          });
-          await fetchProfile();
-        },
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(), // ⭐ THIS FIX
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            children: [
-              _profileHeader(imageProvider),
-              const SizedBox(height: 24),
-              _infoTile(Icons.person_outline, "Name", _fallbackValue(nameCtrl.text)),
-              _infoTile(Icons.cake_outlined, "DOB", _fallbackValue(dobCtrl.text)),
-              _infoTile(
-                Icons.wc_outlined,
-                "Gender",
-                _fallbackValue(selectedGender),
+              color: ColorConstants.success,
+              onRefresh: () async {
+                setState(() {
+                  isLoading = true;
+                });
+                await fetchProfile();
+              },
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(), // ⭐ THIS FIX
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  children: [
+                    _profileHeader(imageProvider),
+                    const SizedBox(height: 24),
+                    _infoTile(Icons.person_outline, "Name",
+                        _fallbackValue(nameCtrl.text)),
+                    _infoTile(Icons.cake_outlined, "DOB",
+                        _fallbackValue(dobCtrl.text)),
+                    _infoTile(
+                      Icons.wc_outlined,
+                      "Gender",
+                      _fallbackValue(selectedGender),
+                    ),
+                    _infoTile(Icons.phone, "Phone", phoneCtrl.text),
+                    _infoTile(Icons.email, "Email", emailCtrl.text),
+                    const SizedBox(height: 20),
+                    ListTile(
+                      leading: const Icon(Icons.edit),
+                      title: const Text("Edit Profile"),
+                      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                      onTap: _showEditProfilePopup,
+                    ),
+                  ],
+                ),
               ),
-              _infoTile(Icons.phone, "Phone", phoneCtrl.text),
-              _infoTile(Icons.email, "Email", emailCtrl.text),
-              const SizedBox(height: 20),
-              ListTile(
-                leading: const Icon(Icons.edit),
-                title: const Text("Edit Profile"),
-                trailing:
-                const Icon(Icons.arrow_forward_ios, size: 16),
-                onTap: _showEditProfilePopup,
-              ),
-            ],
-          ),
-        ),
-      ),
-
+            ),
     );
   }
 
@@ -607,55 +606,23 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Widget _profileHeader(ImageProvider? imageProvider) {
     return Column(
       children: [
-        Stack(
-          alignment: Alignment.bottomRight,
-          children: [
-            InkWell(
-              onTap: imageProvider == null
-                  ? null
-                  : () {
-                      showSimpleDialog(context, profileImageUrl!);
-                      print("Hi ${nameCtrl.text}");
-                    },
-              child: CircleAvatar(
-                radius: 60,
-                backgroundColor: Colors.grey.shade300,
-                backgroundImage: imageProvider,
-                child: imageProvider == null
-                    ? const Icon(Icons.person, size: 40)
-                    : null,
-              ),
-            ),
-
-            /// 🟢 Active / 🔴 Inactive
-            Container(
-              margin: const EdgeInsets.only(right: 6, bottom: 6),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: isActive ? Colors.green : Colors.red,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.white, width: 2),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.15),
-                    blurRadius: 4,
-                  ),
-                ],
-              ),
-              child: Text(
-                isActive ? "ACTIVE" : "INACTIVE",
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
+        InkWell(
+          onTap: imageProvider == null
+              ? null
+              : () {
+                  showSimpleDialog(context, profileImageUrl!);
+                  print("Hi ${nameCtrl.text}");
+                },
+          child: CircleAvatar(
+            radius: 60,
+            backgroundColor: Colors.grey.shade300,
+            backgroundImage: imageProvider,
+            child: imageProvider == null
+                ? const Icon(Icons.person, size: 40)
+                : null,
+          ),
         ),
-
         const SizedBox(height: 12),
-
         Text(
           _fallbackValue(nameCtrl.text),
           style: const TextStyle(
@@ -663,7 +630,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             fontWeight: FontWeight.w600,
           ),
         ),
-
         Text(
           _fallbackValue(emailCtrl.text),
           style: TextStyle(color: Colors.grey.shade600),
@@ -674,7 +640,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   Widget _buildShimmer() {
     return Center(
-      child:Column(
+      child: Column(
         children: [
           const SizedBox(height: 40),
           Shimmer.fromColors(
@@ -773,7 +739,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       lastDate: now,
     );
   }
-
 
   Widget _inputField({
     required TextEditingController controller,
@@ -905,5 +870,4 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       },
     );
   }
-
 }

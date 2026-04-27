@@ -6,6 +6,9 @@ import 'package:http/http.dart' as http;
 import 'package:hungzo_app/services/Api/api_constants.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 
+import 'cart_controller.dart';
+import 'wallet_controller.dart';
+
 class OrderController extends GetxController {
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
@@ -40,6 +43,7 @@ class OrderController extends GetxController {
     required String shippingAddress,
     required String paymentMethod,
     required String fulfillmentType,
+    bool useWallet = true,
     double? lat,
     double? lng,
   }) async {
@@ -77,6 +81,7 @@ class OrderController extends GetxController {
       final Map<String, dynamic> payload = {
         "paymentMethod": paymentMethod,
         "fulfillmentType": fulfillmentType,
+        "useWallet": useWallet,
       };
 
       if (fulfillmentType == "DELIVERY") {
@@ -103,26 +108,29 @@ class OrderController extends GetxController {
       debugPrint("Payment Data $data");
       if (paymentMethod == "ONLINE" && data["success"] == true) {
         if (data['type'] == "WALLET") {
+          await _refreshCheckoutState();
           isLoading.value = false;
           paymentCompleted.value = true;
-        }
-        else {
+        } else {
           _razorpayOrderId = data["razorpayOrderId"].toString();
 
           debugPrint("📦 Razorpay Order ID: $_razorpayOrderId");
 
           _openRazorpay(
             key: data["key"].toString(),
-            amount: int.parse(data["amount"].toString()),
+            amount: int.parse(
+              (data["amountPaise"] ?? data["amount"]).toString(),
+            ),
             razorpayOrderId: _razorpayOrderId!,
           );
         }
       } else if (paymentMethod == "COD" && data["success"] == true) {
+        await _refreshCheckoutState();
         isLoading.value = false;
         paymentCompleted.value = true;
       } else {
         isLoading.value = false;
-        Get.snackbar("Error", "Failed to place order");
+        Get.snackbar("Error", data["message"] ?? "Failed to place order");
       }
     } catch (e) {
       debugPrint("❌ placeOrder error: $e");
@@ -246,6 +254,7 @@ class OrderController extends GetxController {
 
       if (response.statusCode == 200 && data["success"] == true) {
         debugPrint("✅ Payment verified successfully");
+        await _refreshCheckoutState();
         isLoading.value = false;
         paymentCompleted.value = true;
       } else {
@@ -298,11 +307,16 @@ class OrderController extends GetxController {
       snackPosition: SnackPosition.BOTTOM,
     );
   }
+
+  Future<void> _refreshCheckoutState() async {
+    if (Get.isRegistered<WalletController>()) {
+      await Get.find<WalletController>().fetchWallet();
+    }
+    if (Get.isRegistered<CartController>()) {
+      await Get.find<CartController>().fetchCart();
+    }
+  }
 }
-
-
-
-
 
 // class PanValidationScreen extends StatefulWidget {
 //   const PanValidationScreen({super.key});

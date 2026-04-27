@@ -277,6 +277,7 @@ import '../screens/home_view.dart';
 import '../services/Api/api_services.dart';
 import '../utils/snack_bar.dart';
 import '../utils/string_constants.dart';
+import 'wallet_controller.dart';
 
 class AuthController extends GetxController {
   static const Duration _otpRequestCooldown = Duration(seconds: 30);
@@ -376,6 +377,10 @@ class AuthController extends GetxController {
   Future<void> refreshSessionState() async {
     isLoggedIn.value = await hasValidSession();
     isSessionReady.value = true;
+
+    if (isLoggedIn.value && Get.isRegistered<WalletController>()) {
+      unawaited(Get.find<WalletController>().fetchWallet());
+    }
   }
 
   Future<void> logout() async {
@@ -393,6 +398,9 @@ class AuthController extends GetxController {
     await secureStorage.delete(key: Constants.fcmToken);
     isLoggedIn.value = false;
     isSessionReady.value = true;
+    if (Get.isRegistered<WalletController>()) {
+      Get.find<WalletController>().clearWallet();
+    }
   }
 
   Future<bool> ensureAuthenticated({

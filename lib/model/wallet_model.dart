@@ -1,5 +1,5 @@
 class WalletModel {
-  final int balance;
+  final double balance;
   final List<WalletTransaction> transactions;
 
   WalletModel({
@@ -9,8 +9,8 @@ class WalletModel {
 
   factory WalletModel.fromJson(Map<String, dynamic> json) {
     return WalletModel(
-      balance: json['wallet']['balance'],
-      transactions: (json['wallet']['transactions'] as List)
+      balance: ((json['wallet']?['balance'] ?? 0) as num).toDouble(),
+      transactions: ((json['wallet']?['transactions'] ?? []) as List)
           .map((e) => WalletTransaction.fromJson(e))
           .toList(),
     );
@@ -20,7 +20,7 @@ class WalletModel {
 class WalletTransaction {
   final String id;
   final String type;
-  final int amount;
+  final double amount;
   final String reason;
   final String? note;
   final String status;
@@ -40,7 +40,7 @@ class WalletTransaction {
     return WalletTransaction(
       id: json['_id'],
       type: json['type'],
-      amount: json['amount'],
+      amount: ((json['amount'] ?? 0) as num).toDouble(),
       reason: json['reason'],
       note: json['note'],
       status: json['status'],
